@@ -23,22 +23,22 @@ export function HeroSearch() {
   const router = useRouter()
 
   const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+    e.preventDefault();
+    setIsLoading(true);
 
+    const queryParams = new URLSearchParams({
+      days: days.toString(),
+      mustSees: JSON.stringify(mustSees)
+    }).toString();
+    
     try {
-      const queryParams = new URLSearchParams({
-        city: searchQuery,
-        days: days.toString(),
-        mustSees: JSON.stringify(mustSees)
-      }).toString()
-      
-      router.push(`/itinerary/${encodeURIComponent(searchQuery)}?${queryParams}`)
-    } catch (err) {
-      console.error('Navigation error:', err)
-      setIsLoading(false)
+      await router.push(`/itinerary/${encodeURIComponent(searchQuery)}?${queryParams}`);
+    } catch (error) {
+      console.error('Navigation failed:', error);
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
   const clearSearch = () => {
     setSearchQuery("")
@@ -171,5 +171,15 @@ export function HeroSearch() {
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
 
 
