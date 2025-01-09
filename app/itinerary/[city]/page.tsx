@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { Clock, Coffee, Sun, Moon, AlertTriangle, RefreshCw, MapPin } from 'lucide-react'
+import { Clock, Coffee, Sun, Moon, AlertTriangle, RefreshCw, MapPin, Save } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Toast } from "@/components/ui/toast"
 import DailyRouteMap from '@/components/DailyRouteMap'
+import { useSession } from "next-auth/react"
 
 interface ItineraryActivity {
   name: string
@@ -36,6 +37,7 @@ export default function ItineraryPage() {
   const [toastMessage, setToastMessage] = useState('')
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
+  const { data: session } = useSession()
 
   const fetchItinerary = async () => {
     setIsLoading(true)
@@ -84,8 +86,28 @@ export default function ItineraryPage() {
     }
   }
 
+  const fetchSavedItinerary = async (id: string) => {
+    try {
+      const response = await fetch(`/api/itineraries/${id}`)
+      if (!response.ok) throw new Error('Failed to fetch saved itinerary')
+      const data = await response.json()
+      setItinerary(data.itinerary.content)
+      setSelectedDay(1)
+    } catch (error) {
+      console.error('Error fetching saved itinerary:', error)
+      setError('Failed to load saved itinerary')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
-    fetchItinerary()
+    const savedId = searchParams.get('saved')
+    if (savedId) {
+      fetchSavedItinerary(savedId)
+    } else {
+      fetchItinerary()
+    }
   }, [params.city, searchParams])
 
   useEffect(() => {
@@ -106,20 +128,22 @@ export default function ItineraryPage() {
         const sectionMatch = day.match(sectionRegex);
         const sectionContent = sectionMatch ? sectionMatch[1].trim() : '';
         const activities = sectionContent.split(/\d+\./).filter(Boolean).map(activity => {
-          const [name, ...rest] = activity.split('\n').filter(Boolean);
-          const timeMatch = name.match(/$$(.*?)$$/);
+          const lines = activity.split('\n').filter(Boolean);
+          const name = lines[0] || 'Unnamed Activity';
+          const rest = lines.slice(1);
+          const timeMatch = name.match(/\$\$(.*?)\$\$/);
           const addressMatch = rest.find(line => line.toLowerCase().includes('address:'));
           return {
-            name: name.replace(/$$.*?$$/, '').trim(),
+            name: name.replace(/\$\$.*?\$\$/, '').trim(),
             time: timeMatch ? timeMatch[1] : '',
-            description: rest.filter(line => !line.toLowerCase().includes('address:')).join('\n').trim(),
-            transportation: rest.find(line => line.toLowerCase().includes('transportation')) || '',
-            address: addressMatch ? addressMatch.replace(/address:/i, '').trim() : ''
+            description: rest.filter(line => !line.toLowerCase().includes('address:') && !line.toLowerCase().includes('transportation:')).join('\n').trim(),
+            transportation: rest.find(line => line.toLowerCase().includes('transportation:')) || '',
+            address: addressMatch ? addressMatch.replace(/address:/i, '').trim() : undefined
           };
         });
 
         if (sectionTitle === 'Morning' && day.includes('Lunch')) {
-          const lunchRegex = /Lunch $$(.*?)$$:([\s\S]*?)(?=Afternoon|$)/;
+          const lunchRegex = /Lunch \$\$(.*?)\$\$:([\s\S]*?)(?=Afternoon|$)/;
           const lunchMatch = day.match(lunchRegex);
           if (lunchMatch) {
             const lunchContent = lunchMatch[2].trim();
@@ -129,12 +153,12 @@ export default function ItineraryPage() {
               time: lunchMatch[1],
               description: lunchContent.replace(/Address: .*/, '').trim(),
               transportation: '',
-              address: addressMatch ? addressMatch[1].trim() : ''
+              address: addressMatch ? addressMatch[1].trim() : undefined
             });
           }
         }
         if (sectionTitle === 'Evening' && day.includes('Dinner')) {
-          const dinnerRegex = /Dinner $$(.*?)$$:([\s\S]*?)$/;
+          const dinnerRegex = /Dinner \$\$(.*?)\$\$:([\s\S]*?)$/;
           const dinnerMatch = day.match(dinnerRegex);
           if (dinnerMatch) {
             const dinnerContent = dinnerMatch[2].trim();
@@ -144,7 +168,7 @@ export default function ItineraryPage() {
               time: dinnerMatch[1],
               description: dinnerContent.replace(/Address: .*/, '').trim(),
               transportation: '',
-              address: addressMatch ? addressMatch[1].trim() : ''
+              address: addressMatch ? addressMatch[1].trim() : undefined
             });
           }
         }
@@ -156,7 +180,7 @@ export default function ItineraryPage() {
             time: '', 
             description: 'The AI did not provide a specific activity for this time slot. Please try regenerating the itinerary.', 
             transportation: '',
-            address: ''
+            address: undefined
           }] 
         };
       });
@@ -166,18 +190,57 @@ export default function ItineraryPage() {
 
   const getDayLocations = (day: ItineraryDay) => {
     return day.sections.flatMap(section => 
-      section.activities.filter(activity => activity.address).map(activity => ({
-        name: activity.name,
-        address: activity.address as string
-      }))
+      section.activities
+        .filter(activity => activity.address && activity.address.trim() !== '')
+        .map(activity => ({
+          name: activity.name,
+          address: activity.address as string
+        }))
     );
   };
+
+  const saveItinerary = async () => {
+    if (!session) {
+      router.push('/login')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/itineraries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          city: params.city,
+          days: itinerary.length,
+          content: itinerary,
+          mustSees: JSON.parse(searchParams.get('mustSees') || '[]'),
+          startDate: null,
+          endDate: null,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save itinerary')
+      }
+
+      setToastMessage('Itinerary saved successfully!')
+      setToastType('success')
+      setShowToast(true)
+    } catch (error) {
+      console.error('Error saving itinerary:', error)
+      setToastMessage('Failed to save itinerary')
+      setToastType('error')
+      setShowToast(true)
+    }
+  }
 
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-4rem)]">
         <Clock className="animate-spin h-8 w-8 mr-3" />
-        <p>Generating your itinerary...</p>
+        <p>Loading your itinerary...</p>
       </div>
     )
   }
@@ -202,6 +265,16 @@ export default function ItineraryPage() {
           <RefreshCw className="mr-2 h-4 w-4" />
           Regenerate Itinerary
         </Button>
+        {session && (
+          <Button
+            onClick={saveItinerary}
+            className="flex items-center ml-2"
+            variant="outline"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save Itinerary
+          </Button>
+        )}
       </div>
       <div className="flex flex-wrap gap-2 mb-4">
         {itinerary.map((day) => (
@@ -214,10 +287,12 @@ export default function ItineraryPage() {
           </Button>
         ))}
       </div>
-      {selectedDay && (
+      {selectedDay && itinerary[selectedDay - 1] && (
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4">Day {selectedDay} Route</h2>
-          <DailyRouteMap locations={getDayLocations(itinerary[selectedDay - 1])} />
+          <DailyRouteMap 
+            locations={getDayLocations(itinerary[selectedDay - 1])} 
+            dayNumber={selectedDay}
+          />
         </div>
       )}
       {itinerary.map((day) => (
@@ -256,7 +331,9 @@ export default function ItineraryPage() {
       ))}
       {showToast && (
         <Toast 
-          className={`fixed bottom-4 right-4 p-2 rounded shadow-lg bg-red-500 text-white`}
+          className={`fixed bottom-4 right-4 p-2 rounded shadow-lg ${
+            toastType === 'error' ? 'bg-red-500' : 'bg-green-500'
+          } text-white`}
         >
           {toastMessage}
         </Toast>
@@ -264,8 +341,3 @@ export default function ItineraryPage() {
     </div>
   )
 }
-
-
-
-
-

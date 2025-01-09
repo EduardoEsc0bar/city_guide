@@ -8,11 +8,13 @@ interface Location {
 
 interface DailyRouteMapProps {
   locations: Location[];
+  dayNumber: number;
 }
 
-const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations }) => {
+const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations, dayNumber }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [directionsRenderer, setDirectionsRenderer] = useState<google.maps.DirectionsRenderer | null>(null);
 
   useEffect(() => {
     const loader = new Loader({
@@ -28,17 +30,40 @@ const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations }) => {
           zoom: 10,
         });
         setMap(map);
+        const renderer = new google.maps.DirectionsRenderer();
+        renderer.setMap(map);
+        setDirectionsRenderer(renderer);
       }
     });
   }, []);
 
   useEffect(() => {
-    if (map && locations.length > 0) {
-      const google = window.google;
-      const directionsService = new google.maps.DirectionsService();
-      const directionsRenderer = new google.maps.DirectionsRenderer();
-      directionsRenderer.setMap(map);
+    if (!map || !directionsRenderer || locations.length === 0) return;
 
+    const google = window.google;
+
+    if (locations.length === 1) {
+      // If there's only one location, center the map on that location
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: locations[0].address }, (results, status) => {
+        if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
+          map.setCenter(results[0].geometry.location);
+          map.setZoom(15);
+          new google.maps.Marker({
+            map: map,
+            position: results[0].geometry.location,
+            title: locations[0].name
+          });
+        } else {
+          console.error('Geocode was not successful for the following reason: ' + status);
+        }
+      });
+    } else {
+      // For multiple locations, calculate the route
+      const directionsService = new google.maps.DirectionsService();
+
+      const origin = locations[0].address;
+      const destination = locations[locations.length - 1].address;
       const waypoints = locations.slice(1, -1).map(location => ({
         location: location.address,
         stopover: true
@@ -46,25 +71,55 @@ const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations }) => {
 
       directionsService.route(
         {
-          origin: locations[0].address,
-          destination: locations[locations.length - 1].address,
+          origin: origin,
+          destination: destination,
           waypoints: waypoints,
           optimizeWaypoints: true,
           travelMode: google.maps.TravelMode.WALKING,
         },
-        (result: any, status: any) => {
+        (result, status) => {
           if (status === google.maps.DirectionsStatus.OK && result) {
             directionsRenderer.setDirections(result);
+            
+            // Fit the map to the route
+            const bounds = new google.maps.LatLngBounds();
+            result.routes[0].legs.forEach((leg) => {
+              leg.steps.forEach((step) => {
+                bounds.extend(step.start_location);
+                bounds.extend(step.end_location);
+              });
+            });
+            map.fitBounds(bounds);
+          } else {
+            console.error('Directions request failed due to ' + status);
+            // Handle the error (e.g., show a message to the user)
           }
         }
       );
     }
-  }, [map, locations]);
+  }, [map, directionsRenderer, locations]);
 
-  return <div ref={mapRef} style={{ width: '100%', height: '400px' }} />;
+  return (
+    <div>
+      <h3 className="text-xl font-semibold mb-2">Day {dayNumber} Route</h3>
+      <div ref={mapRef} style={{ width: '100%', height: '400px' }} />
+    </div>
+  );
 };
 
 export default DailyRouteMap;
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
