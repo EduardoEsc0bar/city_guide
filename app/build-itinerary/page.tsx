@@ -138,7 +138,17 @@ export default function BuildItineraryPage() {
           title: itineraryTitle,
           city: itineraryTitle,
           days: days.length,
-          content: days,
+          content: days.map(day => ({
+            sections: [{
+              title: "Activities",
+              activities: day.activities.map(activity => ({
+                name: activity.name,
+                time: activity.startTime,
+                duration: activity.duration,
+                address: activity.address
+              }))
+            }]
+          })),
         }),
       })
 
@@ -290,5 +300,7 @@ export default function BuildItineraryPage() {
     </div>
   )
 }
+
+
 
 

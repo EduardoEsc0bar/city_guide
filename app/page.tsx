@@ -1,13 +1,13 @@
-import Image from "next/image"
 import { HeroSearch } from "@/components/hero-search"
 import { DestinationCard } from "@/components/destination-card"
 import Link from "next/link"
+import Image from "next/image"
 
 const popularDestinations = [
   {
     id: "1",
     name: "New York City",
-    image: "/nyc.jpg?height=400&width=600",
+    image: "/nyc.jpg",
     description: "Experience the vibrant culture and iconic landmarks of the Big Apple.",
     rating: 4.8,
     tags: ["Urban", "Culture", "Food"],
@@ -15,7 +15,7 @@ const popularDestinations = [
   {
     id: "2",
     name: "Paris",
-    image: "/paris.jpg?height=400&width=600",
+    image: "/paris.jpg",
     description: "Discover the romance and beauty of the City of Light.",
     rating: 4.9,
     tags: ["Culture", "History", "Romance"],
@@ -23,17 +23,17 @@ const popularDestinations = [
   {
     id: "3",
     name: "Tokyo",
-    image: "/tokyo.jpg?height=400&width=600",
+    image: "/tokyo.jpg",
     description: "Immerse yourself in the perfect blend of tradition and innovation.",
-    rating: 4.7,
+    rating: 5.0,
     tags: ["Technology", "Culture", "Food"],
   },
   {
     id: "4",
     name: "Barcelona",
-    image: "/fcbarcelona.jpg?height=400&width=600",
+    image: "/fcbarcelona.jpg",
     description: "Experience stunning architecture and Mediterranean charm.",
-    rating: 4.6,
+    rating: 5.0,
     tags: ["Architecture", "Beach", "Culture"],
   },
 ]
@@ -48,6 +48,10 @@ export default function Home() {
             alt="City skyline"
             fill
             className="object-cover"
+            priority
+            sizes="100vw"
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDABQODxIPDRQSEBIXFRQYHjIhHhwcHj0sLiQySUBMS0dARkVQWnNiUFVtVkVGZIhlbXd7gYKBTmCNl4x9lnN+gXz/2wBDARUXFx4aHjshITt8U0ZTfHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHz/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWEREiMxUf/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAFxEAAwEAAAAAAAAAAAAAAAAAAAECEf/aAAwDAQACEQMRAD8AoNxbhL3xvpeNluNyeQ0pwCxJGwA5NFE9fqU+s5+0pr//2Q=="
           />
           <div className="absolute inset-0 bg-black/40 z-10" />
         </div>
@@ -74,3 +78,7 @@ export default function Home() {
     </div>
   )
 }
+
+
+
+

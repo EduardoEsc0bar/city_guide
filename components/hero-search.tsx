@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from 'next/navigation'
-import { Search, X, Plus, Minus, Check } from 'lucide-react'
+import { Search, X, Check, AlertCircle } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Toast } from "@/components/ui/toast"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { DateRange } from "react-day-picker"
+import { differenceInDays, addDays } from "date-fns"
 
 interface MustSee {
   name: string;
@@ -16,25 +19,42 @@ interface MustSee {
 export function HeroSearch() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [days, setDays] = useState(1)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>()
   const [mustSees, setMustSees] = useState<MustSee[]>([])
   const [newMustSee, setNewMustSee] = useState<MustSee>({ name: '', address: '' })
   const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState("")
+  const [toastType, setToastType] = useState<"success" | "error">("success")
   const router = useRouter()
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!searchQuery.trim()) {
+      setToastMessage("Please enter a city for the itinerary");
+      setToastType("error");
+      setShowToast(true);
+      return;
+    }
     setIsLoading(true);
 
+    const days = dateRange?.from && dateRange?.to
+      ? differenceInDays(dateRange.to, dateRange.from) + 1
+      : undefined;
+
     const queryParams = new URLSearchParams({
-      days: days.toString(),
-      mustSees: JSON.stringify(mustSees)
+      ...(days && { days: days.toString() }),
+      mustSees: JSON.stringify(mustSees),
+      ...(dateRange?.from && { startDate: dateRange.from.toISOString() }),
+      ...(dateRange?.to && { endDate: dateRange.to.toISOString() })
     }).toString();
     
     try {
       await router.push(`/itinerary/${encodeURIComponent(searchQuery)}?${queryParams}`);
     } catch (error) {
       console.error('Navigation failed:', error);
+      setToastMessage("Failed to generate itinerary. Please try again.");
+      setToastType("error");
+      setShowToast(true);
     } finally {
       setIsLoading(false);
     }
@@ -48,6 +68,8 @@ export function HeroSearch() {
     if (newMustSee.name) {
       setMustSees([...mustSees, newMustSee])
       setNewMustSee({ name: '', address: '' })
+      setToastMessage("Must-see location added successfully!");
+      setToastType("success");
       setShowToast(true)
     }
   }
@@ -91,27 +113,10 @@ export function HeroSearch() {
         </div>
         
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="icon"
-              onClick={() => setDays(Math.max(1, days - 1))}
-              className="bg-white text-black border-gray-300 hover:bg-gray-100 hover:text-black"
-            >
-              <Minus className="h-4 w-4" />
-            </Button>
-            <span className="text-white">{days} day{days > 1 ? 's' : ''}</span>
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="icon"
-              onClick={() => setDays(days + 1)}
-              className="bg-white text-black border-gray-300 hover:bg-gray-100 hover:text-black"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
+          <DateRangePicker
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+          />
           
           <Dialog>
             <DialogTrigger asChild>
@@ -164,22 +169,11 @@ export function HeroSearch() {
       </form>
 
       {showToast && (
-        <Toast className="fixed bottom-4 right-4 bg-green-500 text-white p-2 rounded shadow-lg">
-          Must-see location added successfully!
+        <Toast className={`fixed bottom-4 right-4 ${toastType === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white p-2 rounded shadow-lg flex items-center`}>
+          {toastType === 'error' && <AlertCircle className="mr-2 h-4 w-4" />}
+          {toastMessage}
         </Toast>
       )}
     </div>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
