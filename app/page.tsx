@@ -1,6 +1,7 @@
 import Image from "next/image"
 import { HeroSearch } from "@/components/hero-search"
 import { DestinationCard } from "@/components/destination-card"
+import Link from "next/link"
 
 const popularDestinations = [
   {
@@ -40,7 +41,7 @@ const popularDestinations = [
 export default function Home() {
   return (
     <div className="min-h-screen">
-      <div className="relative h-[calc(80vh-4rem)] flex items-center justify-center">
+      <div className="relative h-[calc(85vh-4rem)] flex items-center justify-center">
         <div className="absolute inset-0 z-0">
           <Image
             src="/barcelona.jpg"
@@ -56,6 +57,9 @@ export default function Home() {
             Discover amazing destinations and create personalized itineraries tailored to your interests
           </p>
           <HeroSearch />
+          <Link href="/build-itinerary" className="block mt-4">
+            <button className="bg-white text-black hover:bg-gray-100 px-6 py-3 rounded-md">Making an Itinerary from Scratch?</button>
+          </Link>
         </div>
       </div>
 
@@ -70,18 +74,3 @@ export default function Home() {
     </div>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -3,10 +3,8 @@ import { Button } from "@/components/ui/button";
 import { MapPin } from 'lucide-react';
 
 interface Location {
-  lat: number;
-  lng: number;
-  name?: string;
-  address?: string;
+  name: string;
+  address: string;
 }
 
 interface OpenInGoogleMapsButtonProps {
@@ -17,9 +15,9 @@ const OpenInGoogleMapsButton: React.FC<OpenInGoogleMapsButtonProps> = ({ locatio
   const openInGoogleMaps = () => {
     if (locations.length === 0) return;
 
-    const origin = `${locations[0].lat},${locations[0].lng}`;
-    const destination = `${locations[locations.length - 1].lat},${locations[locations.length - 1].lng}`;
-    const waypoints = locations.slice(1, -1).map(loc => `${loc.lat},${loc.lng}`).join('|');
+    const origin = encodeURIComponent(locations[0].address);
+    const destination = encodeURIComponent(locations[locations.length - 1].address);
+    const waypoints = locations.slice(1, -1).map(loc => encodeURIComponent(loc.address)).join('|');
 
     const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=walking`;
 
@@ -35,6 +33,8 @@ const OpenInGoogleMapsButton: React.FC<OpenInGoogleMapsButtonProps> = ({ locatio
 };
 
 export default OpenInGoogleMapsButton;
+
+
 
 
 

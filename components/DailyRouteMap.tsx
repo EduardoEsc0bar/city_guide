@@ -43,7 +43,6 @@ const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations, dayNumber }) =
     const google = window.google;
 
     if (locations.length === 1) {
-      // If there's only one location, center the map on that location
       const geocoder = new google.maps.Geocoder();
       geocoder.geocode({ address: locations[0].address }, (results, status) => {
         if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
@@ -59,7 +58,6 @@ const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations, dayNumber }) =
         }
       });
     } else {
-      // For multiple locations, calculate the route
       const directionsService = new google.maps.DirectionsService();
 
       const origin = locations[0].address;
@@ -81,7 +79,6 @@ const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations, dayNumber }) =
           if (status === google.maps.DirectionsStatus.OK && result) {
             directionsRenderer.setDirections(result);
             
-            // Fit the map to the route
             const bounds = new google.maps.LatLngBounds();
             result.routes[0].legs.forEach((leg) => {
               leg.steps.forEach((step) => {
@@ -92,7 +89,6 @@ const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations, dayNumber }) =
             map.fitBounds(bounds);
           } else {
             console.error('Directions request failed due to ' + status);
-            // Handle the error (e.g., show a message to the user)
           }
         }
       );
@@ -108,6 +104,8 @@ const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations, dayNumber }) =
 };
 
 export default DailyRouteMap;
+
+
 
 
 

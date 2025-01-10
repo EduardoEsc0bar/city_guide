@@ -6,25 +6,11 @@ import { Clock, Coffee, Sun, Moon, AlertTriangle, RefreshCw, MapPin, Save } from
 import { Button } from "@/components/ui/button"
 import { Toast } from "@/components/ui/toast"
 import DailyRouteMap from '@/components/DailyRouteMap'
+import OpenInGoogleMapsButton from '@/components/OpenInGoogleMapsButton'
+import RestaurantSearch from '@/components/RestaurantSearch'
+import AccommodationSearch from '@/components/AccommodationSearch'
 import { useSession } from "next-auth/react"
-
-interface ItineraryActivity {
-  name: string
-  time: string
-  description: string
-  transportation?: string
-  address?: string
-}
-
-interface ItinerarySection {
-  title: string
-  activities: ItineraryActivity[]
-}
-
-interface ItineraryDay {
-  dayNumber: number
-  sections: ItinerarySection[]
-}
+import { ItineraryDay, ItinerarySection, ItineraryActivity, Restaurant, Accommodation } from '@/types/itinerary'
 
 export default function ItineraryPage() {
   const params = useParams()
@@ -38,6 +24,8 @@ export default function ItineraryPage() {
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const { data: session } = useSession()
+  const [selectedAccommodation, setSelectedAccommodation] = useState<Accommodation | null>(null)
+  const [isSavedItinerary, setIsSavedItinerary] = useState(false)
 
   const fetchItinerary = async () => {
     setIsLoading(true)
@@ -50,13 +38,15 @@ export default function ItineraryPage() {
         throw new Error('No city specified')
       }
 
+      const decodedCity = decodeURIComponent(params.city as string)
+
       const response = await fetch('/api/generate-itinerary', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          city: params.city,
+          city: decodedCity,
           days: parseInt(days),
           mustSees
         }),
@@ -86,13 +76,61 @@ export default function ItineraryPage() {
     }
   }
 
+  const saveGeneratedItinerary = async () => {
+    if (!session) {
+      router.push('/login')
+      return
+    }
+
+    try {
+      const decodedCity = decodeURIComponent(params.city as string)
+      const response = await fetch('/api/itineraries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: decodedCity,
+          city: decodedCity,
+          days: itinerary.length,
+          content: itinerary,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save itinerary')
+      }
+
+      setToastMessage('Itinerary saved successfully!')
+      setToastType('success')
+      setShowToast(true)
+    } catch (error) {
+      console.error('Error saving itinerary:', error)
+      setToastMessage('Failed to save itinerary')
+      setToastType('error')
+      setShowToast(true)
+    }
+  }
+
   const fetchSavedItinerary = async (id: string) => {
     try {
       const response = await fetch(`/api/itineraries/${id}`)
       if (!response.ok) throw new Error('Failed to fetch saved itinerary')
       const data = await response.json()
-      setItinerary(data.itinerary.content)
+      console.log("Fetched saved itinerary:", data.itinerary);
+      
+      if (data.itinerary.content) {
+        setItinerary(parseItinerary(data.itinerary.content))
+      } else {
+        console.error("No content found in the saved itinerary")
+        setError("Failed to load saved itinerary: No content found")
+      }
+      
       setSelectedDay(1)
+      if (data.itinerary.accommodation) {
+        setSelectedAccommodation(data.itinerary.accommodation)
+      }
+      setIsSavedItinerary(true)
     } catch (error) {
       console.error('Error fetching saved itinerary:', error)
       setError('Failed to load saved itinerary')
@@ -117,75 +155,110 @@ export default function ItineraryPage() {
     }
   }, [showToast])
 
-  const parseItinerary = (rawItinerary: string): ItineraryDay[] => {
-    const days = rawItinerary.split(/Day \d+:/).filter(Boolean);
-    const numDays = parseInt(searchParams.get('days') || '1', 10);
-    
-    return days.slice(0, numDays).map((day, index) => {
-      const sections = ['Morning', 'Afternoon', 'Evening'];
-      const daySections = sections.map(sectionTitle => {
-        const sectionRegex = new RegExp(`${sectionTitle}:([\\s\\S]*?)(?=${sections.map(s => `${s}:`).join('|')}|Dinner|$)`);
-        const sectionMatch = day.match(sectionRegex);
-        const sectionContent = sectionMatch ? sectionMatch[1].trim() : '';
-        const activities = sectionContent.split(/\d+\./).filter(Boolean).map(activity => {
-          const lines = activity.split('\n').filter(Boolean);
-          const name = lines[0] || 'Unnamed Activity';
-          const rest = lines.slice(1);
-          const timeMatch = name.match(/\$\$(.*?)\$\$/);
-          const addressMatch = rest.find(line => line.toLowerCase().includes('address:'));
-          return {
-            name: name.replace(/\$\$.*?\$\$/, '').trim(),
-            time: timeMatch ? timeMatch[1] : '',
-            description: rest.filter(line => !line.toLowerCase().includes('address:') && !line.toLowerCase().includes('transportation:')).join('\n').trim(),
-            transportation: rest.find(line => line.toLowerCase().includes('transportation:')) || '',
-            address: addressMatch ? addressMatch.replace(/address:/i, '').trim() : undefined
+  const parseItinerary = (rawItinerary: string | ItineraryDay[] | any): ItineraryDay[] => {
+    if (Array.isArray(rawItinerary)) {
+      // This is likely a custom-built itinerary or already parsed data
+      return rawItinerary.map((day, index) => ({
+        dayNumber: index + 1,
+        sections: day.sections || [{
+          title: "Activities",
+          activities: day.activities?.map((activity: any) => ({
+            name: activity.name,
+            time: activity.startTime || activity.time || '',
+            description: activity.description || `Duration: ${activity.duration} minutes`,
+            address: activity.address || '',
+            transportation: activity.transportation || '',
+          })) || []
+        }]
+      }));
+    } else if (typeof rawItinerary === 'string') {
+      // This is likely an AI-generated itinerary
+      const days = rawItinerary.split(/Day \d+:/).filter(Boolean);
+      
+      return days.map((day, index) => {
+        const sections = ['Morning', 'Afternoon', 'Evening'];
+        const daySections: ItinerarySection[] = sections.map(sectionTitle => {
+          const sectionRegex = new RegExp(`${sectionTitle}:([\\s\\S]*?)(?=${sections.map(s => `${s}:`).join('|')}|Dinner|$)`);
+          const sectionMatch = day.match(sectionRegex);
+          const sectionContent = sectionMatch ? sectionMatch[1].trim() : '';
+          const activities: ItineraryActivity[] = sectionContent.split(/\d+\./).filter(Boolean).map(activity => {
+            const lines = activity.split('\n').filter(Boolean);
+            const name = lines[0] || 'Unnamed Activity';
+            const rest = lines.slice(1);
+            const timeMatch = name.match(/$$(\d{2}:\d{2}\s*-\s*\d{2}:\d{2})$$/);
+            const addressMatch = rest.find(line => line.toLowerCase().includes('address:'));
+            return {
+              name: name.replace(/$$\d{2}:\d{2}\s*-\s*\d{2}:\d{2}$$/, '').trim(),
+              time: timeMatch ? timeMatch[1] : '',
+              description: rest.filter(line => !line.toLowerCase().includes('address:') && !line.toLowerCase().includes('transportation:')).join('\n').trim(),
+              transportation: rest.find(line => line.toLowerCase().includes('transportation:')) || '',
+              address: addressMatch ? addressMatch.replace(/address:/i, '').trim() : '',
+            };
+          });
+
+          if (sectionTitle === 'Morning' && day.includes('Lunch')) {
+            const lunchRegex = /Lunch\s*$$(\d{2}:\d{2}\s*-\s*\d{2}:\d{2})$$:([\s\S]*?)(?=Afternoon|$)/;
+            const lunchMatch = day.match(lunchRegex);
+            if (lunchMatch) {
+              const lunchContent = lunchMatch[2].trim();
+              const addressMatch = lunchContent.match(/Address: (.*?)(?:\n|$)/);
+              activities.push({
+                name: 'Lunch',
+                time: lunchMatch[1],
+                description: lunchContent.replace(/Address: .*/, '').trim(),
+                transportation: '',
+                address: addressMatch ? addressMatch[1].trim() : '',
+              });
+            }
+          }
+          if (sectionTitle === 'Evening' && day.includes('Dinner')) {
+            const dinnerRegex = /Dinner\s*$$(\d{2}:\d{2}\s*-\s*\d{2}:\d{2})$$:([\s\S]*?)$/;
+            const dinnerMatch = day.match(dinnerRegex);
+            if (dinnerMatch) {
+              const dinnerContent = dinnerMatch[2].trim();
+              const addressMatch = dinnerContent.match(/Address: (.*?)(?:\n|$)/);
+              activities.push({
+                name: 'Dinner',
+                time: dinnerMatch[1],
+                description: dinnerContent.replace(/Address: .*/, '').trim(),
+                transportation: '',
+                address: addressMatch ? addressMatch[1].trim() : '',
+              });
+            }
+          }
+
+          return { 
+            title: sectionTitle, 
+            activities: activities.length > 0 ? activities : [{ 
+              name: 'Activity not specified', 
+              time: '', 
+              description: 'No specific activity for this time slot.', 
+              transportation: '',
+              address: '',
+            }] 
           };
         });
-
-        if (sectionTitle === 'Morning' && day.includes('Lunch')) {
-          const lunchRegex = /Lunch \$\$(.*?)\$\$:([\s\S]*?)(?=Afternoon|$)/;
-          const lunchMatch = day.match(lunchRegex);
-          if (lunchMatch) {
-            const lunchContent = lunchMatch[2].trim();
-            const addressMatch = lunchContent.match(/Address: (.*?)(?:\n|$)/);
-            activities.push({
-              name: 'Lunch',
-              time: lunchMatch[1],
-              description: lunchContent.replace(/Address: .*/, '').trim(),
-              transportation: '',
-              address: addressMatch ? addressMatch[1].trim() : undefined
-            });
-          }
-        }
-        if (sectionTitle === 'Evening' && day.includes('Dinner')) {
-          const dinnerRegex = /Dinner \$\$(.*?)\$\$:([\s\S]*?)$/;
-          const dinnerMatch = day.match(dinnerRegex);
-          if (dinnerMatch) {
-            const dinnerContent = dinnerMatch[2].trim();
-            const addressMatch = dinnerContent.match(/Address: (.*?)(?:\n|$)/);
-            activities.push({
-              name: 'Dinner',
-              time: dinnerMatch[1],
-              description: dinnerContent.replace(/Address: .*/, '').trim(),
-              transportation: '',
-              address: addressMatch ? addressMatch[1].trim() : undefined
-            });
-          }
-        }
-
-        return { 
-          title: sectionTitle, 
-          activities: activities.length > 0 ? activities : [{ 
-            name: 'Activity not specified', 
-            time: '', 
-            description: 'The AI did not provide a specific activity for this time slot. Please try regenerating the itinerary.', 
-            transportation: '',
-            address: undefined
-          }] 
-        };
+        return { dayNumber: index + 1, sections: daySections };
       });
-      return { dayNumber: index + 1, sections: daySections };
-    });
+    } else if (typeof rawItinerary === 'object' && rawItinerary !== null) {
+      // This might be a parsed object, try to convert it to our expected format
+      return Object.entries(rawItinerary).map(([key, value]: [string, any], index) => ({
+        dayNumber: index + 1,
+        sections: [{
+          title: "Activities",
+          activities: Array.isArray(value) ? value.map((activity: any) => ({
+            name: activity.name,
+            time: activity.startTime || activity.time || '',
+            description: activity.description || '',
+            address: activity.address || '',
+            transportation: activity.transportation || '',
+          })) : []
+        }]
+      }));
+    } else {
+      console.error("Unexpected itinerary format:", rawItinerary);
+      return [];
+    }
   };
 
   const getDayLocations = (day: ItineraryDay) => {
@@ -206,26 +279,29 @@ export default function ItineraryPage() {
     }
 
     try {
+      const decodedCity = decodeURIComponent(params.city as string)
       const response = await fetch('/api/itineraries', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          city: params.city,
+          title: decodedCity,
           days: itinerary.length,
           content: itinerary,
           mustSees: JSON.parse(searchParams.get('mustSees') || '[]'),
           startDate: null,
           endDate: null,
+          accommodation: selectedAccommodation,
         }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to save itinerary')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save itinerary')
       }
 
-      setToastMessage('Itinerary saved successfully!')
+      setToastMessage(`Itinerary for ${decodedCity} saved successfully!`)
       setToastType('success')
       setShowToast(true)
     } catch (error) {
@@ -235,6 +311,51 @@ export default function ItineraryPage() {
       setShowToast(true)
     }
   }
+
+  const handleSelectRestaurant = (restaurant: Restaurant, mealTime: string) => {
+    setItinerary(prevItinerary => {
+      const newItinerary = [...prevItinerary];
+      const dayIndex = selectedDay ? selectedDay - 1 : 0;
+      const day = newItinerary[dayIndex];
+      
+      let sectionIndex;
+      switch (mealTime) {
+        case 'breakfast':
+          sectionIndex = 0;
+          break;
+        case 'lunch':
+          sectionIndex = 1;
+          break;
+        case 'dinner':
+          sectionIndex = 2;
+          break;
+        default:
+          sectionIndex = 1;
+      }
+
+      const newActivity: ItineraryActivity = {
+        name: `${mealTime.charAt(0).toUpperCase() + mealTime.slice(1)} at ${restaurant.name}`,
+        time: '',
+        description: `Enjoy a meal at ${restaurant.name}. Rating: ${restaurant.rating}`,
+        address: restaurant.address,
+      };
+
+      day.sections[sectionIndex].activities.push(newActivity);
+
+      return newItinerary;
+    });
+
+    setToastMessage(`Added ${restaurant.name} to your itinerary!`);
+    setToastType('success');
+    setShowToast(true);
+  };
+
+  const handleSelectAccommodation = (accommodation: Accommodation) => {
+    setSelectedAccommodation(accommodation);
+    setToastMessage(`Selected ${accommodation.name} as your accommodation!`);
+    setToastType('success');
+    setShowToast(true);
+  };
 
   if (isLoading) {
     return (
@@ -259,23 +380,40 @@ export default function ItineraryPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-4">Your {itinerary.length}-Day Itinerary for {decodeURIComponent(params.city as string)}</h1>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Your {itinerary.length}-Day Itinerary for {params.city}</h1>
-        <Button onClick={fetchItinerary} className="flex items-center">
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Regenerate Itinerary
-        </Button>
-        {session && (
-          <Button
-            onClick={saveItinerary}
-            className="flex items-center ml-2"
-            variant="outline"
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Save Itinerary
-          </Button>
-        )}
+        <div className="flex space-x-2">
+          <RestaurantSearch city={decodeURIComponent(params.city as string)} onSelectRestaurant={handleSelectRestaurant} />
+          <AccommodationSearch 
+            city={decodeURIComponent(params.city as string)} 
+            onSelect={handleSelectAccommodation} 
+          />
+          {!isSavedItinerary && (
+            <>
+              <Button onClick={fetchItinerary} className="flex items-center">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Regenerate Itinerary
+              </Button>
+              {session && (
+                <Button
+                  onClick={saveItinerary}
+                  className="flex items-center"
+                  variant="outline"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Itinerary
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
+      {selectedAccommodation && (
+        <div className="mb-4 p-4 bg-blue-100 rounded-lg">
+          <h3 className="font-semibold">Selected Accommodation:</h3>
+          <p>{selectedAccommodation.name} - {selectedAccommodation.address}</p>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2 mb-4">
         {itinerary.map((day) => (
           <Button
@@ -289,6 +427,10 @@ export default function ItineraryPage() {
       </div>
       {selectedDay && itinerary[selectedDay - 1] && (
         <div className="mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-semibold">Day {selectedDay} Route</h2>
+            <OpenInGoogleMapsButton locations={getDayLocations(itinerary[selectedDay - 1])} />
+          </div>
           <DailyRouteMap 
             locations={getDayLocations(itinerary[selectedDay - 1])} 
             dayNumber={selectedDay}
@@ -341,3 +483,5 @@ export default function ItineraryPage() {
     </div>
   )
 }
+
+

@@ -12,18 +12,19 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
-    const { city, days, content, mustSees, startDate, endDate } = body
+    const { title, days, content, mustSees, startDate, endDate, accommodation } = body
 
     const { data: itinerary, error } = await supabase
       .from('itineraries')
       .insert({
         user_id: session.user.id,
-        city,
+        title: title,
         days,
-        content,
+        content: JSON.stringify(content),
         must_sees: mustSees,
         start_date: startDate,
-        end_date: endDate
+        end_date: endDate,
+        accommodation: accommodation ? JSON.stringify(accommodation) : null,
       })
       .select()
 
@@ -52,12 +53,54 @@ export async function GET(req: Request) {
 
     if (error) throw error
 
-    return NextResponse.json({ itineraries })
+    console.log("Fetched itineraries:", itineraries);
+
+    const processedItineraries = itineraries.map(itinerary => {
+      let parsedContent;
+      try {
+        parsedContent = JSON.parse(itinerary.content);
+      } catch (error) {
+        console.error("Error parsing itinerary content:", error);
+        parsedContent = itinerary.content;
+      }
+      return {
+        ...itinerary,
+        title: itinerary.title || "Untitled Itinerary",
+        content: parsedContent,
+        accommodation: itinerary.accommodation ? JSON.parse(itinerary.accommodation) : null,
+      };
+    });
+
+    console.log("Processed itineraries:", processedItineraries);
+
+    return NextResponse.json({ itineraries: processedItineraries })
   } catch (error) {
     console.error("Failed to fetch itineraries:", error)
     return NextResponse.json({ error: "Failed to fetch itineraries" }, { status: 500 })
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
