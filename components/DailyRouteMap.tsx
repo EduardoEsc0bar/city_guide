@@ -42,16 +42,18 @@ const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations, dayNumber }) =
 
     const google = window.google;
 
-    // Filter out locations without valid addresses
+    // Filter out locations without addresses
     const validLocations = locations.filter(location => location.address && location.address.trim() !== '');
 
     if (validLocations.length === 0) {
-      // If no valid locations, center the map on a default location (e.g., city center)
+      // If no valid locations, center the map on the city name
       const geocoder = new google.maps.Geocoder();
       geocoder.geocode({ address: locations[0].name }, (results, status) => {
         if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
           map.setCenter(results[0].geometry.location);
           map.setZoom(12);
+        } else {
+          console.error('Geocode was not successful for the following reason: ' + status);
         }
       });
       return;
