@@ -156,7 +156,7 @@ export default function SavedItinerariesPage() {
   }, [showToast])
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return null;
+    if (!dateString) return 'Date not set';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
   };
@@ -245,11 +245,7 @@ export default function SavedItinerariesPage() {
                 <div className="space-y-2">
                   <p className="flex items-center text-sm text-gray-500">
                     <Calendar className="h-4 w-4 mr-2" />
-                    {itinerary.startDate && itinerary.endDate ? (
-                      `${formatDate(itinerary.startDate)} - ${formatDate(itinerary.endDate)}`
-                    ) : (
-                      'Dates not set'
-                    )}
+                    {formatDate(itinerary.startDate)} - {formatDate(itinerary.endDate)}
                   </p>
                   <p className="flex items-center text-sm text-gray-500">
                     <Clock className="h-4 w-4 mr-2" />
