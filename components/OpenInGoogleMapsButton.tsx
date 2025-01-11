@@ -4,7 +4,7 @@ import { MapPin } from 'lucide-react';
 
 interface Location {
   name: string;
-  address: string;
+  address: string | undefined;
 }
 
 interface OpenInGoogleMapsButtonProps {
@@ -15,9 +15,12 @@ const OpenInGoogleMapsButton: React.FC<OpenInGoogleMapsButtonProps> = ({ locatio
   const openInGoogleMaps = () => {
     if (locations.length === 0) return;
 
-    const origin = encodeURIComponent(locations[0].address);
-    const destination = encodeURIComponent(locations[locations.length - 1].address);
-    const waypoints = locations.slice(1, -1).map(loc => encodeURIComponent(loc.address)).join('|');
+    const validLocations = locations.filter(loc => loc.address);
+    if (validLocations.length === 0) return;
+
+    const origin = encodeURIComponent(validLocations[0].address!);
+    const destination = encodeURIComponent(validLocations[validLocations.length - 1].address!);
+    const waypoints = validLocations.slice(1, -1).map(loc => encodeURIComponent(loc.address!)).join('|');
 
     const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=walking`;
 
@@ -33,8 +36,4 @@ const OpenInGoogleMapsButton: React.FC<OpenInGoogleMapsButtonProps> = ({ locatio
 };
 
 export default OpenInGoogleMapsButton;
-
-
-
-
 
