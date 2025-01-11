@@ -396,10 +396,9 @@ export default function ItineraryPage() {
   const getDayLocations = (day: ItineraryDay) => {
     return day.sections.flatMap(section => 
       section.activities
-        .filter(activity => activity.address && activity.address.trim() !== '')
         .map(activity => ({
           name: activity.name,
-          address: activity.address as string
+          address: activity.address || ''
         }))
     );
   };
@@ -692,3 +691,4 @@ export default function ItineraryPage() {
     </div>
   )
 }
+
