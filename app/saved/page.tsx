@@ -8,7 +8,6 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { MapPin, Calendar, Clock, ChevronDown, ChevronUp, Hotel, Trash2, Share } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Toast } from "@/components/ui/toast"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { popularDestinations } from '@/data/destinations'
 
 interface SavedItinerary {
@@ -42,6 +41,7 @@ export default function SavedItinerariesPage() {
   const [publishingItinerary, setPublishingItinerary] = useState<string | null>(null)
 
   useEffect(() => {
+    console.log('useEffect triggered. Status:', status)
     if (status === "loading") return;
 
     if (status === "unauthenticated") {
@@ -52,10 +52,19 @@ export default function SavedItinerariesPage() {
   }, [status, router])
 
   const fetchItineraries = async () => {
+    console.log('Fetching itineraries...')
+    if (!session?.user?.id) {
+      console.error('No user ID found in session')
+      setError('Unable to fetch itineraries. Please try logging in again.')
+      setIsLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('/api/itineraries')
       if (!response.ok) throw new Error('Failed to fetch itineraries')
       const data = await response.json()
+      console.log('Fetched itineraries:', data.itineraries)
       setItineraries(data.itineraries)
       setError(null)
     } catch (error) {
@@ -178,7 +187,11 @@ export default function SavedItinerariesPage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Your Saved Itineraries</h1>
       
-      {error ? (
+      {isLoading ? (
+        <div className="flex justify-center items-center min-h-[300px]">
+          <Clock className="animate-spin h-8 w-8" />
+        </div>
+      ) : error ? (
         <div className="text-center py-12">
           <p className="text-red-500 mb-4">{error}</p>
           <Button onClick={fetchItineraries}>Try Again</Button>
