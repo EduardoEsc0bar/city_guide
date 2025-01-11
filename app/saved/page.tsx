@@ -22,6 +22,8 @@ interface SavedItinerary {
     address: string
   } | null
   isPublished: boolean
+  startDate: string | null
+  endDate: string | null
 }
 
 export default function SavedItinerariesPage() {
@@ -39,13 +41,12 @@ export default function SavedItinerariesPage() {
   const [selectedDestination, setSelectedDestination] = useState<string>('')
   const [publishingItinerary, setPublishingItinerary] = useState<string | null>(null)
 
-
   useEffect(() => {
+    if (status === "loading") return;
+
     if (status === "unauthenticated") {
       router.push('/login')
-    }
-
-    if (status === "authenticated") {
+    } else if (status === "authenticated") {
       fetchItineraries()
     }
   }, [status, router])
@@ -146,6 +147,7 @@ export default function SavedItinerariesPage() {
     }
   }
 
+
   useEffect(() => {
     if (showToast) {
       const timer = setTimeout(() => setShowToast(false), 3000)
@@ -153,12 +155,21 @@ export default function SavedItinerariesPage() {
     }
   }, [showToast])
 
-  if (isLoading) {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Not set';
+    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  if (status === "loading") {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <Clock className="animate-spin h-8 w-8" />
       </div>
     )
+  }
+
+  if (status === "unauthenticated") {
+    return null; // This will prevent any flash of content before redirect
   }
 
   console.log('Available destinations:', popularDestinations.map(d => d.name));
@@ -231,7 +242,7 @@ export default function SavedItinerariesPage() {
                 <div className="space-y-2">
                   <p className="flex items-center text-sm text-gray-500">
                     <Calendar className="h-4 w-4 mr-2" />
-                    {new Date(itinerary.created_at).toLocaleDateString()}
+                    {formatDate(itinerary.startDate)} - {formatDate(itinerary.endDate)}
                   </p>
                   <p className="flex items-center text-sm text-gray-500">
                     <Clock className="h-4 w-4 mr-2" />
