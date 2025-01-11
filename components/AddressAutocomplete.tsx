@@ -1,3 +1,5 @@
+/// <reference types="@types/google.maps" />
+
 "use client"
 
 import React, { useRef, useEffect, useState } from 'react'
@@ -30,18 +32,18 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({ value, onChan
 
   useEffect(() => {
     if (loaded && inputRef.current) {
-      const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
+      const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
         types: ['address']
-      })
+      });
 
       autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace()
+        const place = autocomplete.getPlace();
         if (place.formatted_address) {
-          onSelect(place.formatted_address)
+          onSelect(place.formatted_address);
         }
-      })
+      });
     }
-  }, [loaded, onSelect])
+  }, [loaded, onSelect]);
 
   return (
     <Input
@@ -56,4 +58,6 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({ value, onChan
 }
 
 export default AddressAutocomplete
+
+
 
