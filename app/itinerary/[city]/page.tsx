@@ -14,7 +14,7 @@ import OpenInGoogleMapsButton from '@/components/OpenInGoogleMapsButton'
 import RestaurantSearch from '@/components/RestaurantSearch'
 import AccommodationSearch from '@/components/AccommodationSearch'
 import { useSession } from "next-auth/react"
-import { ItineraryDay, ItinerarySection, ItineraryActivity, Restaurant, Accommodation } from '@/types/itinerary'
+import { ItineraryDay, ItinerarySection, ItineraryActivity, Restaurant, Accommodation, Location } from '@/types/itinerary'
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd'
 import EditableItinerary from '@/components/EditableItinerary'
 import {DateRange} from "@/types/dateRange"
@@ -393,13 +393,13 @@ export default function ItineraryPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const getDayLocations = (day: ItineraryDay) => {
+  const getDayLocations = (day: ItineraryDay): Location[] => {
     return day.sections.flatMap(section => 
       section.activities
         .filter(activity => activity.address && activity.address.trim() !== '')
         .map(activity => ({
           name: activity.name,
-          address: activity.address as string
+          address: activity.address as string // Type assertion
         }))
     );
   };
@@ -692,3 +692,4 @@ export default function ItineraryPage() {
     </div>
   )
 }
+

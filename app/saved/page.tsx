@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { MapPin, Calendar, Clock, ChevronDown, ChevronUp, Hotel, Trash2, Share } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Toast } from "@/components/ui/toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { popularDestinations } from '@/data/destinations'
 
 interface SavedItinerary {
@@ -41,7 +42,6 @@ export default function SavedItinerariesPage() {
   const [publishingItinerary, setPublishingItinerary] = useState<string | null>(null)
 
   useEffect(() => {
-    console.log('useEffect triggered. Status:', status)
     if (status === "loading") return;
 
     if (status === "unauthenticated") {
@@ -52,19 +52,10 @@ export default function SavedItinerariesPage() {
   }, [status, router])
 
   const fetchItineraries = async () => {
-    console.log('Fetching itineraries...')
-    if (!session?.user?.id) {
-      console.error('No user ID found in session')
-      setError('Unable to fetch itineraries. Please try logging in again.')
-      setIsLoading(false)
-      return
-    }
-
     try {
       const response = await fetch('/api/itineraries')
       if (!response.ok) throw new Error('Failed to fetch itineraries')
       const data = await response.json()
-      console.log('Fetched itineraries:', data.itineraries)
       setItineraries(data.itineraries)
       setError(null)
     } catch (error) {
@@ -165,8 +156,9 @@ export default function SavedItinerariesPage() {
   }, [showToast])
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
   };
 
   if (status === "loading") {
@@ -187,11 +179,7 @@ export default function SavedItinerariesPage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Your Saved Itineraries</h1>
       
-      {isLoading ? (
-        <div className="flex justify-center items-center min-h-[300px]">
-          <Clock className="animate-spin h-8 w-8" />
-        </div>
-      ) : error ? (
+      {error ? (
         <div className="text-center py-12">
           <p className="text-red-500 mb-4">{error}</p>
           <Button onClick={fetchItineraries}>Try Again</Button>
@@ -203,7 +191,9 @@ export default function SavedItinerariesPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {itineraries.map((itinerary) => (
+          {itineraries.map((itinerary) => {
+            console.log('Itinerary dates:', itinerary.title, itinerary.startDate, itinerary.endDate);
+            return (
             <Card key={itinerary.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -255,7 +245,11 @@ export default function SavedItinerariesPage() {
                 <div className="space-y-2">
                   <p className="flex items-center text-sm text-gray-500">
                     <Calendar className="h-4 w-4 mr-2" />
-                    {formatDate(itinerary.startDate)} - {formatDate(itinerary.endDate)}
+                    {itinerary.startDate && itinerary.endDate ? (
+                      `${formatDate(itinerary.startDate)} - ${formatDate(itinerary.endDate)}`
+                    ) : (
+                      'Dates not set'
+                    )}
                   </p>
                   <p className="flex items-center text-sm text-gray-500">
                     <Clock className="h-4 w-4 mr-2" />
@@ -282,7 +276,8 @@ export default function SavedItinerariesPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )})
+        }
         </div>
       )}
       {showToast && (
