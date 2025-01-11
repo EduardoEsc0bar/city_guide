@@ -120,7 +120,10 @@ export function HeroSearch() {
           
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" className="bg-white text-black border-gray-300 hover:bg-gray-100 hover:text-black">Add Must-sees</Button>
+              <Button variant="outline" className="bg-white text-black border-gray-300 hover:bg-gray-100 hover:text-black">
+                <span className="hidden sm:inline">Add Must-sees</span>
+                <span className="sm:hidden">Add</span>
+              </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -177,3 +180,4 @@ export function HeroSearch() {
     </div>
   )
 }
+

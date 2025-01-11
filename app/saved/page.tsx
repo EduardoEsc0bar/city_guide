@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { MapPin, Calendar, Clock, ChevronDown, ChevronUp, Hotel, Trash2, Share, CalendarIcon } from 'lucide-react'
+import { MapPin, Calendar, Clock, ChevronDown, ChevronUp, Hotel, Trash2, Share } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Toast } from "@/components/ui/toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -22,8 +22,6 @@ interface SavedItinerary {
     address: string
   } | null
   isPublished: boolean
-  startDate: string | null
-  endDate: string | null
 }
 
 export default function SavedItinerariesPage() {
@@ -40,8 +38,7 @@ export default function SavedItinerariesPage() {
   const [publishDialogOpen, setPublishDialogOpen] = useState(false)
   const [selectedDestination, setSelectedDestination] = useState<string>('')
   const [publishingItinerary, setPublishingItinerary] = useState<string | null>(null)
-  const [isGoogleCalendarAuthenticated, setIsGoogleCalendarAuthenticated] = useState(false) // Added Google Calendar auth state
-  const searchParams = useSearchParams()
+
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -149,104 +146,12 @@ export default function SavedItinerariesPage() {
     }
   }
 
-  const saveToGoogleCalendar = async (itineraryId: string) => {
-    if (!isGoogleCalendarAuthenticated) {
-      handleGoogleCalendarAuth();
-      return;
-    }
-
-    if (!itineraries.find(i => i.id === itineraryId)?.startDate || !itineraries.find(i => i.id === itineraryId)?.endDate) {
-      setToastMessage('Please set start and end dates before saving to Google Calendar');
-      setToastType('error');
-      setShowToast(true);
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/itineraries/${itineraryId}/save-to-calendar`, {
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error('Failed to save to Google Calendar');
-      setToastMessage('Itinerary saved to Google Calendar successfully');
-      setToastType('success');
-      setShowToast(true);
-    } catch (error) {
-      console.error('Error saving to Google Calendar:', error);
-      setToastMessage('Failed to save to Google Calendar');
-      setToastType('error');
-      setShowToast(true);
-    }
-  };
-
-  const handleGoogleCalendarAuth = useCallback(async () => {
-    try {
-      const response = await fetch('/api/auth/google-calendar');
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error('No authentication URL received');
-      }
-    } catch (error) {
-      console.error('Error initiating Google Calendar auth:', error);
-      setToastMessage('Failed to initiate Google Calendar authentication');
-      setToastType('error');
-      setShowToast(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    const code = searchParams.get('code');
-    const error = searchParams.get('error');
-
-    if (error) {
-      setToastMessage('Google Calendar authentication failed. Please try again.');
-      setToastType('error');
-      setShowToast(true);
-      return;
-    }
-
-    if (code) {
-      const exchangeCodeForTokens = async () => {
-        try {
-          const response = await fetch('/api/auth/google-calendar', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ code }),
-          });
-          if (response.ok) {
-            setIsGoogleCalendarAuthenticated(true);
-            setToastMessage('Successfully authenticated with Google Calendar');
-            setToastType('success');
-            setShowToast(true);
-          } else {
-            throw new Error('Failed to exchange code for tokens');
-          }
-        } catch (error) {
-          console.error('Error exchanging code for tokens:', error);
-          setToastMessage('Failed to complete Google Calendar authentication');
-          setToastType('error');
-          setShowToast(true);
-        }
-      };
-      exchangeCodeForTokens();
-    }
-  }, [searchParams]);
-
-
   useEffect(() => {
     if (showToast) {
       const timer = setTimeout(() => setShowToast(false), 3000)
       return () => clearTimeout(timer)
     }
   }, [showToast])
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  };
 
   if (isLoading) {
     return (
@@ -326,7 +231,7 @@ export default function SavedItinerariesPage() {
                 <div className="space-y-2">
                   <p className="flex items-center text-sm text-gray-500">
                     <Calendar className="h-4 w-4 mr-2" />
-                    {formatDate(itinerary.startDate)} - {formatDate(itinerary.endDate)}
+                    {new Date(itinerary.created_at).toLocaleDateString()}
                   </p>
                   <p className="flex items-center text-sm text-gray-500">
                     <Clock className="h-4 w-4 mr-2" />
@@ -349,13 +254,6 @@ export default function SavedItinerariesPage() {
                     onClick={() => router.push(`/itinerary/${encodeURIComponent(itinerary.title)}?saved=${itinerary.id}`)}
                   >
                     View Full Itinerary
-                  </Button>
-                  <Button 
-                    className="w-full mt-2"
-                    onClick={() => saveToGoogleCalendar(itinerary.id)}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {isGoogleCalendarAuthenticated ? 'Save to Google Calendar' : 'Authenticate Google Calendar'}
                   </Button>
                 </div>
               </CardContent>
@@ -406,5 +304,4 @@ export default function SavedItinerariesPage() {
     </div>
   )
 }
-
 

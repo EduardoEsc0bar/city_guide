@@ -78,16 +78,12 @@ export default function Home() {
           ))}
         </div>
       </section>
+      <footer className="mt-8 py-4 text-center text-sm text-gray-500">
+        <Link href="/privacy-policy" className="hover:text-gray-700">
+          Privacy Policy
+        </Link>
+      </footer>
     </div>
   )
 }
-
-
-
-
-
-
-
-
-
 

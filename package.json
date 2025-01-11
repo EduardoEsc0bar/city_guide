@@ -29,6 +29,7 @@
         "react-beautiful-dnd": "^13.1.1",
         "react-day-picker": "^8.7.1",
         "react-dom": "^18.2.0",
+        "sharp": "^0.33.5",
         "tailwind-merge": "^1.14.0",
         "utf-8-validate": "^6.0.3",
         "uuid": "^9.0.0"
