@@ -1,6 +1,7 @@
 import NextAuth, { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import { supabase } from "@/lib/supabase"
+import { v4 as uuidv4 } from 'uuid'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -16,18 +17,21 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ user, account }) {
-      if (!user?.email) return false;
+      if (!user?.email) return false
       
       try {
+        const uuid = uuidv4()
         const { data, error } = await supabase
           .from('users')
           .upsert({
+            id: uuid,
             email: user.email,
-            name: user.name || '',
-            avatar_url: user.image || '',
+            name: user.name,
+            avatar_url: user.image,
             updated_at: new Date().toISOString(),
           }, {
             onConflict: 'email',
+            ignoreDuplicates: false,
           })
           .select()
           .single()
@@ -37,8 +41,8 @@ export const authOptions: NextAuthOptions = {
           return false
         }
 
-        // Store the user's ID in the user object
-        user.id = data.id
+        // Store the generated UUID in the user object
+        user.id = uuid
 
         return true
       } catch (error) {
@@ -46,30 +50,22 @@ export const authOptions: NextAuthOptions = {
         return false
       }
     },
-    async session({ session, token }) {
-      if (session?.user) {
-        session.user.id = token.sub!
-      }
-      return session
-    },
     async jwt({ token, user }) {
       if (user) {
-        token.sub = user.id
+        token.id = user.id
       }
       return token
+    },
+    async session({ session, token }) {
+      if (session?.user) {
+        session.user.id = token.id as string
+      }
+      return session
     }
   },
   pages: {
     signIn: '/login',
     error: '/auth/error',
-  },
-  events: {
-    async signIn({ user }) {
-      console.log("User signed in:", user.email)
-    },
-    async signOut({ session }) {
-      console.log("User signed out")
-    },
   },
   debug: process.env.NODE_ENV === 'development',
 }
@@ -77,6 +73,4 @@ export const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions)
 
 export { handler as GET, handler as POST }
-
-
 
