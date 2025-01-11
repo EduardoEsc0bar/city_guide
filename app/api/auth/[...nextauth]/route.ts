@@ -1,20 +1,12 @@
 import NextAuth, { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import { supabase } from "@/lib/supabase"
-import { v4 as uuidv4 } from 'uuid'
 
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code"
-        }
-      }
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
@@ -24,21 +16,18 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ user, account }) {
-      if (!user?.email) return false
+      if (!user?.email) return false;
       
       try {
-        const uuid = uuidv4()
         const { data, error } = await supabase
           .from('users')
           .upsert({
-            id: uuid,
             email: user.email,
-            name: user.name,
-            avatar_url: user.image,
+            name: user.name || '',
+            avatar_url: user.image || '',
             updated_at: new Date().toISOString(),
           }, {
             onConflict: 'email',
-            ignoreDuplicates: false,
           })
           .select()
           .single()
@@ -48,8 +37,8 @@ export const authOptions: NextAuthOptions = {
           return false
         }
 
-        // Store the generated UUID in the user object
-        user.id = uuid
+        // Store the user's ID in the user object
+        user.id = data.id
 
         return true
       } catch (error) {
@@ -88,4 +77,6 @@ export const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions)
 
 export { handler as GET, handler as POST }
+
+
 
