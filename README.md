@@ -6,19 +6,37 @@ I hope this enables people to explore more.
 
 ## Features
 
-- Generate custom itineraries for various cities
-- Tailor your stay by specifying the number of days for your trip
-- Add must-see locations to your itinerary
-- View popular destinations
+- AI-powered itinerary generation
+- Customizable trip duration (1 to multiple days)
+- Integration of must-see locations
+- Interactive map visualization of daily routes
+- Restaurant and accommodation search
+- Itinerary saving and sharing capabilities
+- User authentication and profile management
+- Responsive design for mobile and desktop use
 
-## Getting Started
+## Technologies Used
 
-### Prerequisites
+- Frontend:
+  - React
+  - Next.js (App Router)
+  - TypeScript
+  - Tailwind CSS
+  - shadcn/ui components
+- Backend:
+  - Node.js
+  - Next.js API Routes
+- Database:
+  - Supabase (PostgreSQL)
+- Authentication:
+  - NextAuth.js
+- APIs:
+  - OpenAI API for itinerary generation
+  - Google Maps API for location services
+- Deployment:
+  - Vercel
 
-- Node.js (v14 or later)
-- npm or yarn
-
-### Installation
+## Setup
 
 1. Clone the repository:
 
