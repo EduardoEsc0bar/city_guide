@@ -53,17 +53,21 @@ export async function GET(req: Request) {
     if (error) throw error
 
     const processedItineraries = itineraries.map(itinerary => {
-      let parsedContent;
-      try {
-        parsedContent = JSON.parse(itinerary.content);
-      } catch (e) {
-        console.error("Error parsing itinerary content:", e);
-        parsedContent = itinerary.content; // Use the original content if parsing fails
+      let processedContent = itinerary.content;
+      
+      // Check if content is a string and try to parse it
+      if (typeof itinerary.content === 'string') {
+        try {
+          processedContent = JSON.parse(itinerary.content);
+        } catch (e) {
+          console.error("Error parsing itinerary content:", e);
+          // If parsing fails, keep the original string
+        }
       }
 
       return {
         ...itinerary,
-        content: parsedContent,
+        content: processedContent,
         title: itinerary.title || "Untitled Itinerary",
       };
     });
@@ -74,6 +78,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Failed to fetch itineraries" }, { status: 500 })
   }
 }
+
+
 
 
 

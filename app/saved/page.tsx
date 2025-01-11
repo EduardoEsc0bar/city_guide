@@ -5,9 +5,11 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { MapPin, Calendar, Clock, ChevronDown, ChevronUp, Hotel, Trash2 } from 'lucide-react'
+import { MapPin, Calendar, Clock, ChevronDown, ChevronUp, Hotel, Trash2, Share } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Toast } from "@/components/ui/toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { popularDestinations } from '@/data/destinations'
 
 interface SavedItinerary {
   id: string
@@ -19,6 +21,7 @@ interface SavedItinerary {
     name: string
     address: string
   } | null
+  isPublished: boolean
 }
 
 export default function SavedItinerariesPage() {
@@ -32,6 +35,10 @@ export default function SavedItinerariesPage() {
   const [toastMessage, setToastMessage] = useState('')
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
   const [deleteConfirmation, setDeleteConfirmation] = useState<string | null>(null)
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false)
+  const [selectedDestination, setSelectedDestination] = useState<string>('')
+  const [publishingItinerary, setPublishingItinerary] = useState<string | null>(null)
+
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -48,7 +55,6 @@ export default function SavedItinerariesPage() {
       const response = await fetch('/api/itineraries')
       if (!response.ok) throw new Error('Failed to fetch itineraries')
       const data = await response.json()
-      console.log("Fetched itineraries data:", data)
       setItineraries(data.itineraries)
       setError(null)
     } catch (error) {
@@ -107,6 +113,39 @@ export default function SavedItinerariesPage() {
     }
   }
 
+  const publishItinerary = async () => {
+    if (!publishingItinerary || !selectedDestination) return
+
+    try {
+      const response = await fetch(`/api/itineraries/${publishingItinerary}/publish`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ destination: selectedDestination }),
+      })
+
+      if (!response.ok) throw new Error('Failed to publish itinerary')
+
+      setItineraries(itineraries.map(itinerary => 
+        itinerary.id === publishingItinerary ? { ...itinerary, isPublished: true } : itinerary
+      ))
+
+      setToastMessage('Itinerary published successfully')
+      setToastType('success')
+      setShowToast(true)
+    } catch (error) {
+      console.error('Error publishing itinerary:', error)
+      setToastMessage('Failed to publish itinerary')
+      setToastType('error')
+      setShowToast(true)
+    } finally {
+      setPublishDialogOpen(false)
+      setPublishingItinerary(null)
+      setSelectedDestination('')
+    }
+  }
+
   useEffect(() => {
     if (showToast) {
       const timer = setTimeout(() => setShowToast(false), 3000)
@@ -121,6 +160,8 @@ export default function SavedItinerariesPage() {
       </div>
     )
   }
+
+  console.log('Available destinations:', popularDestinations.map(d => d.name));
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -171,6 +212,18 @@ export default function SavedItinerariesPage() {
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
+                    {!itinerary.isPublished && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setPublishingItinerary(itinerary.id)
+                          setPublishDialogOpen(true)
+                        }}
+                      >
+                        <Share className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardTitle>
               </CardHeader>
@@ -217,6 +270,38 @@ export default function SavedItinerariesPage() {
           {toastMessage}
         </Toast>
       )}
+      <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
+  <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto" aria-describedby="publish-dialog-description">
+    <DialogHeader>
+      <DialogTitle>Publish Itinerary</DialogTitle>
+    </DialogHeader>
+    <div className="py-4">
+      <p id="publish-dialog-description" className="text-sm text-muted-foreground mb-4">
+        Select a destination to publish your itinerary:
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+        {popularDestinations.map((destination) => (
+          <button
+            key={destination.id}
+            className={`p-4 border rounded-lg text-center transition-colors ${
+              selectedDestination === destination.name
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background hover:bg-accent'
+            }`}
+            onClick={() => setSelectedDestination(destination.name)}
+          >
+            {destination.name}
+          </button>
+        ))}
+      </div>
+    </div>
+    <DialogFooter>
+      <Button variant="outline" onClick={() => setPublishDialogOpen(false)}>Cancel</Button>
+      <Button onClick={publishItinerary} disabled={!selectedDestination}>Publish to {selectedDestination}</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
     </div>
   )
 }
+

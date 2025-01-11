@@ -17,7 +17,7 @@ import { useSession } from "next-auth/react"
 import { ItineraryDay, ItinerarySection, ItineraryActivity, Restaurant, Accommodation } from '@/types/itinerary'
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd'
 import EditableItinerary from '@/components/EditableItinerary'
-import {DateRange} from "@/types/dateRange";
+import {DateRange} from "@/types/dateRange"
 
 export default function ItineraryPage() {
   const params = useParams()
@@ -32,6 +32,7 @@ export default function ItineraryPage() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const { data: session } = useSession()
   const [isSavedItinerary, setIsSavedItinerary] = useState(false)
+  const [isPublishedItinerary, setIsPublishedItinerary] = useState(false)
   const [isAddActivityDialogOpen, setIsAddActivityDialogOpen] = useState(false)
   const [newActivity, setNewActivity] = useState<Partial<ItineraryActivity>>({})
   const [isEditMode, setIsEditMode] = useState(false)
@@ -155,6 +156,32 @@ export default function ItineraryPage() {
     }
   }
 
+  const fetchPublishedItinerary = async (id: string) => {
+    try {
+      const response = await fetch(`/api/published-itineraries/${id}`)
+      if (!response.ok) throw new Error('Failed to fetch published itinerary')
+      const data = await response.json()
+      console.log("Fetched published itinerary:", data.itinerary);
+      
+      if (data.itinerary.content) {
+        setItinerary(parseItinerary(data.itinerary.content))
+      } else {
+        console.error("No content found in the published itinerary")
+        setError("Failed to load published itinerary: No content found")
+      }
+      
+      setSelectedDay(1)
+      setIsSavedItinerary(false)
+      setStartDate(data.itinerary.start_date ? new Date(data.itinerary.start_date) : null)
+      setEndDate(data.itinerary.end_date ? new Date(data.itinerary.end_date) : null)
+    } catch (error) {
+      console.error('Error fetching published itinerary:', error)
+      setError('Failed to load published itinerary')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
@@ -218,10 +245,19 @@ export default function ItineraryPage() {
 
   useEffect(() => {
     const savedId = searchParams.get('saved')
+    const publishedId = searchParams.get('published')
     if (savedId) {
       fetchSavedItinerary(savedId)
+      setIsSavedItinerary(true)
+      setIsPublishedItinerary(false)
+    } else if (publishedId) {
+      fetchPublishedItinerary(publishedId)
+      setIsSavedItinerary(false)
+      setIsPublishedItinerary(true)
     } else {
       fetchItinerary()
+      setIsSavedItinerary(false)
+      setIsPublishedItinerary(false)
     }
   }, [params.city, searchParams])
 
@@ -424,6 +460,45 @@ export default function ItineraryPage() {
     setIsEditMode(!isEditMode)
   }
 
+  const savePublishedItinerary = async () => {
+    if (!session) {
+      router.push('/login')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/itineraries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: decodeURIComponent(params.city as string),
+          days: itinerary.length,
+          content: itinerary,
+          startDate: startDate?.toISOString(),
+          endDate: endDate?.toISOString(),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save itinerary')
+      }
+
+      setToastMessage(`Itinerary saved successfully!`)
+      setToastType('success')
+      setShowToast(true)
+      setIsSavedItinerary(true)
+      setIsPublishedItinerary(false)
+    } catch (error) {
+      console.error('Error saving itinerary:', error)
+      setToastMessage('Failed to save itinerary')
+      setToastType('error')
+      setShowToast(true)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-4rem)]">
@@ -453,40 +528,45 @@ export default function ItineraryPage() {
           From {startDate ? startDate.toLocaleDateString() : 'N/A'} to {endDate ? endDate.toLocaleDateString() : 'N/A'}
         </p>
       )}
-      {/* {isSavedItinerary && startDate && endDate && (
-        <p className="text-lg mb-4">
-          From {formatDate(startDate.toISOString())} to {formatDate(endDate.toISOString())}
-        </p>
-      )} */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex space-x-2">
-          <RestaurantSearch location={getSearchLocation()} />
-          <AccommodationSearch location={getSearchLocation()} />
-          {!isSavedItinerary && (
-            <>
-              <Button onClick={fetchItinerary} className="flex items-center">
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Regenerate Itinerary
+      <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 mb-6">
+        <RestaurantSearch location={getSearchLocation()} />
+        <AccommodationSearch location={getSearchLocation()} />
+        {!isSavedItinerary && !isPublishedItinerary && (
+          <>
+            <Button onClick={fetchItinerary} className="flex items-center justify-center w-full sm:w-auto">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Regenerate
+            </Button>
+            {session && (
+              <Button
+                onClick={saveItinerary}
+                className="flex items-center justify-center w-full sm:w-auto"
+                variant="outline"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save Itinerary
               </Button>
-              {session && (
-                <Button
-                  onClick={saveItinerary}
-                  className="flex items-center"
-                  variant="outline"
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Itinerary
-                </Button>
-              )}
-            </>
-          )}
-          <Button onClick={toggleEditMode} className="flex items-center">
+            )}
+          </>
+        )}
+        {isPublishedItinerary && session && (
+          <Button
+            onClick={savePublishedItinerary}
+            className="flex items-center justify-center w-full sm:w-auto"
+            variant="outline"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save to My Itineraries
+          </Button>
+        )}
+        {(isSavedItinerary || (!isPublishedItinerary && !isSavedItinerary)) && (
+          <Button onClick={toggleEditMode} className="flex items-center justify-center w-full sm:w-auto">
             <Edit className="mr-2 h-4 w-4" />
             {isEditMode ? 'View Itinerary' : 'Edit Itinerary'}
           </Button>
-        </div>
+        )}
       </div>
-      {isEditMode ? (
+      {isEditMode && (isSavedItinerary || (!isPublishedItinerary && !isSavedItinerary)) ? (
         <EditableItinerary 
           itinerary={itinerary} 
           setItinerary={setItinerary}
@@ -612,6 +692,12 @@ export default function ItineraryPage() {
     </div>
   )
 }
+
+
+
+
+
+
 
 
 

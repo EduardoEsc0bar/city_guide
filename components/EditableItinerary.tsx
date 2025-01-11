@@ -95,7 +95,7 @@ const EditableItinerary: React.FC<EditableItineraryProps> = ({
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-6 w-full">
         <h3 className="text-lg font-semibold mb-2">Edit Dates</h3>
         <DateRangePicker
           dateRange={{ from: startDate || undefined, to: endDate || undefined }}
@@ -243,6 +243,8 @@ const EditableItinerary: React.FC<EditableItineraryProps> = ({
 };
 
 export default EditableItinerary;
+
+
 
 
 

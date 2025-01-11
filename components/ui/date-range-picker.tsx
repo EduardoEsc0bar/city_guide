@@ -5,6 +5,7 @@ import { CalendarIcon, Check } from 'lucide-react'
 import { addDays, format } from "date-fns"
 import { DateRange } from "react-day-picker"
 import { useState } from "react"
+import { useMediaQuery } from "@/hooks/use-media-query"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -28,6 +29,8 @@ export function DateRangePicker({
 }: DateRangePickerProps) {
   const [tempDateRange, setTempDateRange] = useState<DateRange | undefined>(dateRange)
   const [open, setOpen] = useState(false)
+
+  const isDesktop = useMediaQuery("(min-width: 768px)")
 
   const handleConfirm = () => {
     onDateRangeChange(tempDateRange)
@@ -57,20 +60,23 @@ export function DateRangePicker({
                 format(dateRange.from, "MMM d, yyyy")
               )
             ) : (
-              <span className="text-muted-foreground">Pick a date range (optional)</span>
+              <span>Pick a date range (optional)</span>
             )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <div className="w-[calc(100vw-2rem)] max-w-[600px] h-[340px] relative">
+          <div className={cn(
+            isDesktop ? "w-[600px]" : "w-[300px]",
+            "h-[350px]" // Update 1
+          )}>
             <Calendar
               initialFocus
               mode="range"
               defaultMonth={tempDateRange?.from}
               selected={tempDateRange}
               onSelect={setTempDateRange}
-              numberOfMonths={2}
-              className="h-[calc(100%-40px)]"
+              numberOfMonths={isDesktop ? 2 : 1}
+              className="rounded-md border" // Update 2
             />
             <Button
               size="icon"
@@ -78,11 +84,25 @@ export function DateRangePicker({
               onClick={handleConfirm}
             >
               <Check className="h-4 w-4" />
-            </Button>
+            </Button> {/* Update 3 & 4 */}
           </div>
         </PopoverContent>
       </Popover>
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
