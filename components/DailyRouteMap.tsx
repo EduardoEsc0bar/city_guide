@@ -42,16 +42,31 @@ const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations, dayNumber }) =
 
     const google = window.google;
 
-    if (locations.length === 1) {
+    // Filter out locations without valid addresses
+    const validLocations = locations.filter(location => location.address && location.address.trim() !== '');
+
+    if (validLocations.length === 0) {
+      // If no valid locations, center the map on a default location (e.g., city center)
       const geocoder = new google.maps.Geocoder();
-      geocoder.geocode({ address: locations[0].address }, (results, status) => {
+      geocoder.geocode({ address: locations[0].name }, (results, status) => {
+        if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
+          map.setCenter(results[0].geometry.location);
+          map.setZoom(12);
+        }
+      });
+      return;
+    }
+
+    if (validLocations.length === 1) {
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: validLocations[0].address }, (results, status) => {
         if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
           map.setCenter(results[0].geometry.location);
           map.setZoom(15);
           new google.maps.Marker({
             map: map,
             position: results[0].geometry.location,
-            title: locations[0].name
+            title: validLocations[0].name
           });
         } else {
           console.error('Geocode was not successful for the following reason: ' + status);
@@ -60,9 +75,9 @@ const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations, dayNumber }) =
     } else {
       const directionsService = new google.maps.DirectionsService();
 
-      const origin = locations[0].address;
-      const destination = locations[locations.length - 1].address;
-      const waypoints = locations.slice(1, -1).map(location => ({
+      const origin = validLocations[0].address;
+      const destination = validLocations[validLocations.length - 1].address;
+      const waypoints = validLocations.slice(1, -1).map(location => ({
         location: location.address,
         stopover: true
       }));
@@ -104,22 +119,4 @@ const DailyRouteMap: React.FC<DailyRouteMapProps> = ({ locations, dayNumber }) =
 };
 
 export default DailyRouteMap;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
