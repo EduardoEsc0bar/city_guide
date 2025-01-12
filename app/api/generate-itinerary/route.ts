@@ -11,7 +11,7 @@ function validateItinerary(itinerary: string, numDays: number): { isValid: boole
 
   for (let i = 0; i < numDays; i++) {
     const day = days[i];
-    const requiredSections = ['Morning:', 'Afternoon:', 'Evening:', 'Lunch', 'Dinner'];
+    const requiredSections = ['Morning:', 'Afternoon:', 'Evening:'];
     for (const section of requiredSections) {
       if (!day.includes(section)) {
         return { isValid: false, reason: `Day ${i + 1} is missing ${section} section` };
@@ -19,8 +19,8 @@ function validateItinerary(itinerary: string, numDays: number): { isValid: boole
     }
     
     const activities = day.match(/\d+\./g);
-    if (!activities || activities.length < 5) {
-      return { isValid: false, reason: `Day ${i + 1} has fewer than 5 activities` };
+    if (!activities || activities.length < 2) {
+      return { isValid: false, reason: `Day ${i + 1} has fewer than 2 activities` };
     }
 
     // Check if all activities have addresses
@@ -90,14 +90,8 @@ Afternoon:
 Address: [Specific address for the attraction]
 [Specific transportation information]
 
-4. [Next Specific Attraction] (Start Time – End Time)
-
-[Brief description - 1-2 sentences]
-Address: [Specific address for the attraction]
-[Specific transportation information]
-
 Evening:
-5. [Specific Attraction or Activity] (Start Time – End Time)
+4. [Specific Attraction or Activity] (Start Time – End Time)
 
 [Brief description - 1-2 sentences]
 Address: [Specific address for the attraction/activity]
@@ -109,7 +103,7 @@ Dinner (Start Time – End Time):
 [Brief description of cuisine or dining experience - 1 sentence]
 Address: [Specific address for the restaurant/dining area]
 
-Repeat this EXACT format for each day, up to Day ${numDays}. Do not add any extra text or explanations outside of this format.`;
+Repeat this EXACT format for each day, up to Day ${numDays}. Provide at least 2 activities per day, but aim for 4-5 if possible. Do not add any extra text or explanations outside of this format.`;
 
     let itinerary = '';
     let attempts = 0;
@@ -117,13 +111,13 @@ Repeat this EXACT format for each day, up to Day ${numDays}. Do not add any extr
 
     while (attempts < maxAttempts) {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Create a detailed ${numDays}-day itinerary for ${city} with specific activities for every part of each day, including Morning, Afternoon, Evening, Lunch, and Dinner. Generate EXACTLY ${numDays} day(s), no more and no less. Remember to include a specific address for EVERY activity.` }
         ],
         temperature: 0.7,
-        max_tokens: 10000,
+        max_tokens: 4000,
         top_p: 1,
         frequency_penalty: 0,
         presence_penalty: 0,
@@ -158,26 +152,4 @@ Repeat this EXACT format for each day, up to Day ${numDays}. Do not add any extr
     }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
