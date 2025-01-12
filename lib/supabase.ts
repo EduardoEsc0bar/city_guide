@@ -13,28 +13,41 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: false,
     detectSessionInUrl: false
   },
+  global: {
+    headers: { 'x-my-custom-header': 'CityGuide' },
+  },
   db: {
-    schema: 'public'
-  }
+    schema: 'public',
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
 })
 
-// Verify the connection
-supabase.from('users').select('count', { count: 'exact' }).then(({ error }) => {
-  if (error) {
-    console.error('Error connecting to Supabase:', error)
-  } else {
-    console.log('Successfully connected to Supabase')
+// Verify the connection and table existence
+const verifySetup = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('count', { count: 'exact', head: true })
+    
+    if (error) {
+      console.error('Error connecting to Supabase:', error)
+      console.error('Supabase URL:', supabaseUrl)
+      console.error('Error details:', JSON.stringify(error, null, 2))
+      return false
+    }
+    
+    console.log('Successfully connected to Supabase and verified users table')
+    return true
+  } catch (err) {
+    console.error('Unexpected error during Supabase verification:', err)
+    console.error('Error details:', JSON.stringify(err, null, 2))
+    return false
   }
-})
+}
 
-
-
-
-
-
-
-
-
-
-
+verifySetup()
 
