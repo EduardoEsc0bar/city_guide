@@ -68,21 +68,32 @@ export default function ItineraryPage() {
         }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      if (!response.body) {
+        throw new Error('No response body')
       }
 
-      const data = await response.json()
-      if (!data.result) {
-        throw new Error('No itinerary data received')
-      }
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
 
-      const parsedItinerary = parseItinerary(data.result)
-      setItinerary(parsedItinerary)
-      setSelectedDay(1)
-      if (startDateParam) setStartDate(new Date(startDateParam))
-      if (endDateParam) setEndDate(new Date(endDateParam))
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        const chunk = decoder.decode(value)
+        const data = JSON.parse(chunk)
+
+        if (data.error) {
+          throw new Error(data.error)
+        }
+
+        if (data.result) {
+          const parsedItinerary = parseItinerary(data.result)
+          setItinerary(parsedItinerary)
+          setSelectedDay(1)
+          if (startDateParam) setStartDate(new Date(startDateParam))
+          if (endDateParam) setEndDate(new Date(endDateParam))
+        }
+      }
     } catch (err) {
       console.error('Error fetching itinerary:', err)
       setError(err instanceof Error ? err.message : 'An error occurred while generating the itinerary. Please try again.')
