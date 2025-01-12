@@ -1,68 +1,20 @@
 import OpenAI from 'openai';
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-function validateItinerary(itinerary: string, numDays: number): { isValid: boolean; reason?: string } {
-  const days = itinerary.split(/Day \d+:/).filter(Boolean);
-  if (days.length < numDays) return { isValid: false, reason: `Expected ${numDays} days, but got ${days.length}` };
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-  for (let i = 0; i < numDays; i++) {
-    const day = days[i];
-    const requiredSections = ['Morning:', 'Afternoon:', 'Evening:'];
-    for (const section of requiredSections) {
-      if (!day.includes(section)) {
-        return { isValid: false, reason: `Day ${i + 1} is missing ${section} section` };
-      }
-    }
-    
-    const activities = day.match(/\d+\./g);
-    if (!activities || activities.length < 2) {
-      return { isValid: false, reason: `Day ${i + 1} has fewer than 2 activities` };
-    }
+async function generateDayItinerary(city: string, dayNumber: number, mustSees: string[]): Promise<string> {
+  const systemPrompt = `You are a knowledgeable travel assistant. Create a detailed 1-day itinerary for ${city}, focusing on must-see locations and efficient travel. Include these must-see locations if applicable: ${mustSees.join(', ')}. Provide SPECIFIC activities for Morning, Afternoon, and Evening, including Lunch and Dinner. Every activity MUST include a specific address. Format the itinerary EXACTLY as follows:
 
-    // Check if all activities have addresses
-    const addressCount = (day.match(/Address:/g) || []).length;
-    if (addressCount < activities.length) {
-      return { isValid: false, reason: `Day ${i + 1} has activities missing addresses` };
-    }
-  }
-  return { isValid: true };
-}
-
-function formatItinerary(itinerary: string, numDays: number): string {
-  const days = itinerary.split(/Day \d+:/).filter(Boolean);
-  return days.slice(0, numDays).map((day, index) => `Day ${index + 1}:${day}`).join('\n\n');
-}
-
-export async function POST(req: Request) {
-  if (!process.env.OPENAI_API_KEY) {
-    console.error("OpenAI API key not configured");
-    return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 });
-  }
-
-  try {
-    const body = await req.json();
-    const { city, days, mustSees } = body;
-
-    if (!city || city.trim().length === 0) {
-      return NextResponse.json({ error: "Please enter a valid city" }, { status: 400 });
-    }
-
-    const numDays = parseInt(days, 10);
-    if (isNaN(numDays) || numDays < 1) {
-      return NextResponse.json({ error: "Invalid number of days" }, { status: 400 });
-    }
-
-    const mustSeesString = mustSees.length > 0
-      ? `Must-see locations: ${mustSees.map((ms: { name: string, address?: string }) => `${ms.name}${ms.address ? ` (${ms.address})` : ''}`).join(', ')}.`
-      : '';
-
-    const systemPrompt = `You are a knowledgeable travel assistant. Create a detailed ${numDays}-day itinerary for ${city}, focusing on must-see locations and efficient travel. ${mustSeesString} Include these must-see locations in the itinerary. You MUST provide SPECIFIC activities for EVERY time slot (Morning, Afternoon, Evening) for EACH day, including Lunch and Dinner. Do not leave any slot empty or generic. EVERY activity MUST include a specific address. Format the itinerary EXACTLY as follows for EACH day:
-
-Day X:
+Day ${dayNumber}:
 
 Morning:
 1. [Specific Attraction Name] (Start Time – End Time)
@@ -103,53 +55,97 @@ Dinner (Start Time – End Time):
 [Brief description of cuisine or dining experience - 1 sentence]
 Address: [Specific address for the restaurant/dining area]
 
-Repeat this EXACT format for each day, up to Day ${numDays}. Provide at least 2 activities per day, but aim for 4-5 if possible. Do not add any extra text or explanations outside of this format.`;
+Provide at least 2 activities per day, but aim for 4-5 if possible. Do not add any extra text or explanations outside of this format.`;
 
-    let itinerary = '';
-    let attempts = 0;
-    const maxAttempts = 3;
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: `Create a detailed 1-day itinerary for day ${dayNumber} in ${city} with specific activities for Morning, Afternoon, Evening, Lunch, and Dinner. Remember to include a specific address for EVERY activity.` }
+    ],
+    temperature: 0.7,
+    max_tokens: 1000,
+    top_p: 1,
+    frequency_penalty: 0,
+    presence_penalty: 0,
+  });
 
-    while (attempts < maxAttempts) {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Create a detailed ${numDays}-day itinerary for ${city} with specific activities for every part of each day, including Morning, Afternoon, Evening, Lunch, and Dinner. Generate EXACTLY ${numDays} day(s), no more and no less. Remember to include a specific address for EVERY activity.` }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000,
-        top_p: 1,
-        frequency_penalty: 0,
-        presence_penalty: 0,
-      });
+  return completion.choices[0].message.content || '';
+}
 
-      itinerary = completion.choices[0].message.content || '';
-      itinerary = formatItinerary(itinerary, numDays);
+async function getCachedActivities(city: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('cached_activities')
+    .select('activities')
+    .eq('city', city)
+    .single();
 
-      const validationResult = validateItinerary(itinerary, numDays);
-      if (validationResult.isValid) {
-        break;
-      }
-
-      console.warn(`Attempt ${attempts + 1} failed: ${validationResult.reason}`);
-      attempts++;
-    }
-
-    if (attempts >= maxAttempts) {
-      console.error(`Failed to generate a valid itinerary after ${maxAttempts} attempts.`);
-      return NextResponse.json({ error: "Failed to generate a valid itinerary. Please try again." }, { status: 500 });
-    }
-
-    return NextResponse.json({ result: itinerary });
-  } catch (error: any) {
-    console.error("Error in generate-itinerary API:", error);
-    if (error.response) {
-      console.error(error.response.status, error.response.data);
-      return NextResponse.json({ error: error.response.data }, { status: error.response.status });
-    } else {
-      console.error(`Error with OpenAI API request: ${error.message}`);
-      return NextResponse.json({ error: 'An error occurred during your request.' }, { status: 500 });
-    }
+  if (error) {
+    console.error('Error fetching cached activities:', error);
+    return [];
   }
+
+  return data?.activities || [];
+}
+
+async function cacheActivities(city: string, activities: string[]) {
+  const { error } = await supabase
+    .from('cached_activities')
+    .upsert({ city, activities }, { onConflict: 'city' });
+
+  if (error) {
+    console.error('Error caching activities:', error);
+  }
+}
+
+export async function POST(req: Request) {
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("OpenAI API key not configured");
+    return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 });
+  }
+
+  const body = await req.json();
+  const { city, days, mustSees } = body;
+
+  if (!city || city.trim().length === 0) {
+    return NextResponse.json({ error: "Please enter a valid city" }, { status: 400 });
+  }
+
+  const numDays = parseInt(days, 10);
+  if (isNaN(numDays) || numDays < 1) {
+    return NextResponse.json({ error: "Invalid number of days" }, { status: 400 });
+  }
+
+  const cachedActivities = await getCachedActivities(city);
+
+  const encoder = new TextEncoder();
+  const stream = new TransformStream();
+  const writer = stream.writable.getWriter();
+
+  const itineraryPromises = Array.from({ length: numDays }, (_, i) =>
+    generateDayItinerary(city, i + 1, [...mustSees, ...cachedActivities])
+  );
+
+  (async () => {
+    try {
+      const results = await Promise.all(itineraryPromises);
+      const fullItinerary = results.join('\n\n');
+
+      // Cache new activities
+      const newActivities = fullItinerary.match(/\d+\.\s(.+?)\s\(/g)?.map(match => match.replace(/\d+\.\s/, '').replace(/\s\($/, '')) || [];
+      await cacheActivities(city, Array.from(new Set([...cachedActivities, ...newActivities])));
+
+      await writer.write(encoder.encode(JSON.stringify({ result: fullItinerary })));
+    } catch (error) {
+      console.error("Error generating itinerary:", error);
+      await writer.write(encoder.encode(JSON.stringify({ error: 'An error occurred during itinerary generation.' })));
+    } finally {
+      await writer.close();
+    }
+  })();
+
+  return new Response(stream.readable, {
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
