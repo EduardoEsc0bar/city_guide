@@ -111,7 +111,7 @@ Repeat this EXACT format for each day, up to Day ${numDays}. Provide at least 2 
 
     while (attempts < maxAttempts) {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Create a detailed ${numDays}-day itinerary for ${city} with specific activities for every part of each day, including Morning, Afternoon, Evening, Lunch, and Dinner. Generate EXACTLY ${numDays} day(s), no more and no less. Remember to include a specific address for EVERY activity.` }
