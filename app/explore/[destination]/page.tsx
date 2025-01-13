@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,7 @@ import { Calendar, ThumbsUp } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { popularDestinations } from '@/data/destinations'
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface PublishedItinerary {
   id: string
@@ -21,12 +22,66 @@ interface PublishedItinerary {
 
 export default function DestinationPage() {
   const [publishedItineraries, setPublishedItineraries] = useState<PublishedItinerary[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const { data: session } = useSession()
   const params = useParams()
   const router = useRouter()
   const destination = decodeURIComponent(params.destination as string)
 
   const isValidDestination = popularDestinations.some(dest => dest.name.toLowerCase() === destination.toLowerCase())
+
+  const fetchPublishedItineraries = useCallback(async (destination: string) => {
+    try {
+      const response = await fetch(`/api/published-itineraries?destination=${encodeURIComponent(destination)}`)
+      if (!response.ok) throw new Error('Failed to fetch published itineraries')
+      const data = await response.json()
+      setPublishedItineraries(data.itineraries)
+    } catch (error) {
+      console.error('Error fetching published itineraries:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isValidDestination) {
+      setIsLoading(true)
+      fetchPublishedItineraries(destination)
+    }
+  }, [destination, isValidDestination, fetchPublishedItineraries])
+
+  const upvoteItinerary = async (itineraryId: string) => {
+    if (!session) {
+      router.push('/login')
+      return
+    }
+
+    // Optimistic update
+    setPublishedItineraries(prevItineraries =>
+      prevItineraries.map(itinerary =>
+        itinerary.id === itineraryId
+          ? { ...itinerary, upvotes: itinerary.upvotes + 1 }
+          : itinerary
+      )
+    )
+
+    try {
+      const response = await fetch(`/api/published-itineraries/${itineraryId}/upvote`, {
+        method: 'POST',
+      })
+      if (!response.ok) throw new Error('Failed to upvote itinerary')
+    } catch (error) {
+      console.error('Error upvoting itinerary:', error)
+      // Revert the optimistic update if the API call fails
+      setPublishedItineraries(prevItineraries =>
+        prevItineraries.map(itinerary =>
+          itinerary.id === itineraryId
+            ? { ...itinerary, upvotes: itinerary.upvotes - 1 }
+            : itinerary
+        )
+      )
+    }
+  }
 
   if (!isValidDestination) {
     return (
@@ -40,52 +95,27 @@ export default function DestinationPage() {
     )
   }
 
-  useEffect(() => {
-    fetchPublishedItineraries(destination)
-  }, [destination])
-
-  const fetchPublishedItineraries = async (destination: string) => {
-    try {
-      const response = await fetch(`/api/published-itineraries?destination=${encodeURIComponent(destination)}`)
-      if (!response.ok) throw new Error('Failed to fetch published itineraries')
-      const data = await response.json()
-      setPublishedItineraries(data.itineraries)
-    } catch (error) {
-      console.error('Error fetching published itineraries:', error)
-    }
-  }
-
-  const upvoteItinerary = async (itineraryId: string) => {
-    if (!session) {
-      // Prompt user to log in
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/published-itineraries/${itineraryId}/upvote`, {
-        method: 'POST',
-      })
-      if (!response.ok) throw new Error('Failed to upvote itinerary')
-      
-      setPublishedItineraries(prevItineraries =>
-        prevItineraries.map(itinerary =>
-          itinerary.id === itineraryId
-            ? { ...itinerary, upvotes: itinerary.upvotes + 1 }
-            : itinerary
-        )
-      )
-    } catch (error) {
-      console.error('Error upvoting itinerary:', error)
-    }
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
       <Button onClick={() => router.push('/explore')} className="mb-4">
         Back to Destinations
       </Button>
       <h2 className="text-2xl font-bold mb-4">Published Itineraries for {destination}</h2>
-      {publishedItineraries.length === 0 ? (
+      {isLoading ? (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, index) => (
+            <Card key={index}>
+              <CardHeader>
+                <Skeleton className="h-4 w-2/3" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-4 w-1/2 mb-2" />
+                <Skeleton className="h-4 w-1/3" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : publishedItineraries.length === 0 ? (
         <p>No published itineraries yet for this destination.</p>
       ) : (
         <div className="space-y-4">
@@ -124,10 +154,4 @@ export default function DestinationPage() {
     </div>
   )
 }
-
-
-
-
-
-
 
