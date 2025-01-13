@@ -11,8 +11,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-async function generateDayItinerary(city: string, dayNumber: number, mustSees: string[]): Promise<string> {
-  const systemPrompt = `You are a knowledgeable travel assistant. Create a detailed 1-day itinerary for ${city}, focusing on must-see locations and efficient travel. Include these must-see locations if applicable: ${mustSees.join(', ')}. Provide SPECIFIC activities for Morning, Afternoon, and Evening, including Lunch and Dinner. Every activity MUST include a specific address. Format the itinerary EXACTLY as follows:
+async function generateDayItinerary(city: string, dayNumber: number, mustSees: string[], usedActivities: Set<string>): Promise<{ itinerary: string; activities: string[] }> {
+  const systemPrompt = `You are a knowledgeable travel assistant. Create a detailed 1-day itinerary for ${city}, focusing on must-see locations and efficient travel. Include these must-see locations if applicable and not already used: ${mustSees.join(', ')}. Provide SPECIFIC activities for Morning, Afternoon, and Evening, including Lunch and Dinner. Every activity MUST include a specific address. Format the itinerary EXACTLY as follows:
 
 Day ${dayNumber}:
 
@@ -55,13 +55,13 @@ Dinner (Start Time – End Time):
 [Brief description of cuisine or dining experience - 1 sentence]
 Address: [Specific address for the restaurant/dining area]
 
-Provide at least 2 activities per day, but aim for 4-5 if possible. Do not add any extra text or explanations outside of this format.`;
+Provide at least 2 activities per day, but aim for 4-5 if possible. Do not add any extra text or explanations outside of this format. DO NOT REPEAT activities that have already been used: ${Array.from(usedActivities).join(', ')}.`;
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-3.5-turbo",
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: `Create a detailed 1-day itinerary for day ${dayNumber} in ${city} with specific activities for Morning, Afternoon, Evening, Lunch, and Dinner. Remember to include a specific address for EVERY activity.` }
+      { role: "user", content: `Create a detailed 1-day itinerary for day ${dayNumber} in ${city} with specific activities for Morning, Afternoon, Evening, Lunch, and Dinner. Remember to include a specific address for EVERY activity and DO NOT REPEAT activities from previous days.` }
     ],
     temperature: 0.7,
     max_tokens: 1000,
@@ -70,7 +70,10 @@ Provide at least 2 activities per day, but aim for 4-5 if possible. Do not add a
     presence_penalty: 0,
   });
 
-  return completion.choices[0].message.content || '';
+  const itinerary = completion.choices[0].message.content || '';
+  const newActivities = itinerary.match(/\d+\.\s(.+?)\s\(/g)?.map(match => match.replace(/\d+\.\s/, '').replace(/\s\($/, '')) || [];
+
+  return { itinerary, activities: newActivities };
 }
 
 async function getCachedActivities(city: string): Promise<string[]> {
@@ -122,17 +125,19 @@ export async function POST(req: Request) {
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
 
-  const itineraryPromises = Array.from({ length: numDays }, (_, i) =>
-    generateDayItinerary(city, i + 1, [...mustSees, ...cachedActivities])
-  );
+  const usedActivities = new Set<string>();
 
   (async () => {
     try {
-      const results = await Promise.all(itineraryPromises);
-      const fullItinerary = results.join('\n\n');
+      let fullItinerary = '';
+      for (let i = 0; i < numDays; i++) {
+        const { itinerary, activities } = await generateDayItinerary(city, i + 1, [...mustSees, ...cachedActivities], usedActivities);
+        fullItinerary += (i > 0 ? '\n\n' : '') + itinerary;
+        activities.forEach(activity => usedActivities.add(activity));
+      }
 
       // Cache new activities
-      const newActivities = fullItinerary.match(/\d+\.\s(.+?)\s\(/g)?.map(match => match.replace(/\d+\.\s/, '').replace(/\s\($/, '')) || [];
+      const newActivities = Array.from(usedActivities);
       await cacheActivities(city, Array.from(new Set([...cachedActivities, ...newActivities])));
 
       await writer.write(encoder.encode(JSON.stringify({ result: fullItinerary })));
