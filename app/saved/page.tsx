@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Toast } from "@/components/ui/toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { popularDestinations } from '@/data/destinations'
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface SavedItinerary {
   id: string
@@ -41,17 +42,7 @@ export default function SavedItinerariesPage() {
   const [selectedDestination, setSelectedDestination] = useState<string>('')
   const [publishingItinerary, setPublishingItinerary] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (status === "loading") return;
-
-    if (status === "unauthenticated") {
-      router.push('/login')
-    } else if (status === "authenticated") {
-      fetchItineraries()
-    }
-  }, [status, router])
-
-  const fetchItineraries = async () => {
+  const fetchItineraries = useCallback(async () => {
     try {
       const response = await fetch('/api/itineraries')
       if (!response.ok) throw new Error('Failed to fetch itineraries')
@@ -64,43 +55,30 @@ export default function SavedItinerariesPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchItineraries()
+    } else if (status === "unauthenticated") {
+      router.push('/login')
+    }
+  }, [status, router, fetchItineraries])
 
   const toggleItineraryExpansion = (id: string) => {
     setExpandedItinerary(expandedItinerary === id ? null : id)
   }
 
-  const renderItineraryContent = (content: any) => {
-    if (Array.isArray(content)) {
-      return content.map((day, index) => (
-        <div key={index} className="mb-4">
-          <h4 className="font-medium">Day {index + 1}</h4>
-          {day.sections.map((section: any, sectionIndex: number) => (
-            <div key={sectionIndex} className="ml-4">
-              <h5 className="font-medium">{section.title}</h5>
-              {section.activities.map((activity: any, activityIndex: number) => (
-                <div key={activityIndex} className="ml-4">
-                  <p>{activity.name} {activity.time && `(${activity.time})`}</p>
-                  <p className="text-sm text-gray-600">{activity.description}</p>
-                  {activity.address && <p className="text-sm text-blue-600">{activity.address}</p>}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      ))
-    } else {
-      return <p>Unable to display itinerary content.</p>
-    }
-  }
-
   const deleteItinerary = async (id: string) => {
+    // Optimistic update
+    setItineraries(prevItineraries => prevItineraries.filter(itinerary => itinerary.id !== id))
+    setDeleteConfirmation(null)
+
     try {
       const response = await fetch(`/api/itineraries/${id}`, {
         method: 'DELETE',
       })
       if (!response.ok) throw new Error('Failed to delete itinerary')
-      setItineraries(itineraries.filter(itinerary => itinerary.id !== id))
       setToastMessage('Itinerary deleted successfully')
       setToastType('success')
       setShowToast(true)
@@ -109,8 +87,8 @@ export default function SavedItinerariesPage() {
       setToastMessage('Failed to delete itinerary')
       setToastType('error')
       setShowToast(true)
-    } finally {
-      setDeleteConfirmation(null)
+      // Revert the optimistic update
+      fetchItineraries()
     }
   }
 
@@ -147,7 +125,6 @@ export default function SavedItinerariesPage() {
     }
   }
 
-
   useEffect(() => {
     if (showToast) {
       const timer = setTimeout(() => setShowToast(false), 3000)
@@ -173,8 +150,6 @@ export default function SavedItinerariesPage() {
     return null; // This will prevent any flash of content before redirect
   }
 
-  console.log('Available destinations:', popularDestinations.map(d => d.name));
-
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Your Saved Itineraries</h1>
@@ -184,6 +159,21 @@ export default function SavedItinerariesPage() {
           <p className="text-red-500 mb-4">{error}</p>
           <Button onClick={fetchItineraries}>Try Again</Button>
         </div>
+      ) : isLoading ? (
+        <div className="space-y-6">
+          {[...Array(3)].map((_, index) => (
+            <Card key={index}>
+              <CardHeader>
+                <Skeleton className="h-8 w-2/3" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-4 w-1/2 mb-2" />
+                <Skeleton className="h-4 w-1/3 mb-2" />
+                <Skeleton className="h-4 w-3/4" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : itineraries.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500 mb-4">You haven't saved any itineraries yet.</p>
@@ -191,9 +181,7 @@ export default function SavedItinerariesPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {itineraries.map((itinerary) => {
-            console.log('Itinerary dates:', itinerary.title, itinerary.startDate, itinerary.endDate);
-            return (
+          {itineraries.map((itinerary) => (
             <Card key={itinerary.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -260,7 +248,7 @@ export default function SavedItinerariesPage() {
                   {expandedItinerary === itinerary.id && (
                     <div className="mt-4">
                       <h3 className="font-semibold mb-2">Itinerary Details:</h3>
-                      {renderItineraryContent(itinerary.content)}
+                      {/* Render itinerary details here */}
                     </div>
                   )}
                   <Button 
@@ -272,8 +260,7 @@ export default function SavedItinerariesPage() {
                 </div>
               </CardContent>
             </Card>
-          )})
-        }
+          ))}
         </div>
       )}
       {showToast && (
@@ -286,36 +273,36 @@ export default function SavedItinerariesPage() {
         </Toast>
       )}
       <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
-  <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto" aria-describedby="publish-dialog-description">
-    <DialogHeader>
-      <DialogTitle>Publish Itinerary</DialogTitle>
-    </DialogHeader>
-    <div className="py-4">
-      <p id="publish-dialog-description" className="text-sm text-muted-foreground mb-4">
-        Select a destination to publish your itinerary:
-      </p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
-        {popularDestinations.map((destination) => (
-          <button
-            key={destination.id}
-            className={`p-4 border rounded-lg text-center transition-colors ${
-              selectedDestination === destination.name
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-background hover:bg-accent'
-            }`}
-            onClick={() => setSelectedDestination(destination.name)}
-          >
-            {destination.name}
-          </button>
-        ))}
-      </div>
-    </div>
-    <DialogFooter>
-      <Button variant="outline" onClick={() => setPublishDialogOpen(false)}>Cancel</Button>
-      <Button onClick={publishItinerary} disabled={!selectedDestination}>Publish to {selectedDestination}</Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Publish Itinerary</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Select a destination to publish your itinerary:
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+              {popularDestinations.map((destination) => (
+                <button
+                  key={destination.id}
+                  className={`p-4 border rounded-lg text-center transition-colors ${
+                    selectedDestination === destination.name
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background hover:bg-accent'
+                  }`}
+                  onClick={() => setSelectedDestination(destination.name)}
+                >
+                  {destination.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPublishDialogOpen(false)}>Cancel</Button>
+            <Button onClick={publishItinerary} disabled={!selectedDestination}>Publish to {selectedDestination}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
