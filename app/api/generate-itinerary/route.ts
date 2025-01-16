@@ -58,7 +58,7 @@ Address: [Specific address for the restaurant/dining area]
 Provide at least 2 activities per day, but aim for 4-5 if possible. Do not add any extra text or explanations outside of this format. DO NOT REPEAT activities that have already been used: ${Array.from(usedActivities).join(', ')}.`;
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo",
+    model: "gpt-4o-mini",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: `Create a detailed 1-day itinerary for day ${dayNumber} in ${city} with specific activities for Morning, Afternoon, Evening, Lunch, and Dinner. Remember to include a specific address for EVERY activity and DO NOT REPEAT activities from previous days.` }
