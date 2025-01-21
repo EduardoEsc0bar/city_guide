@@ -1,15 +1,16 @@
-import React, { useState } from 'react'
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd'
-import { Plus, Trash2, Clock, MapPin } from 'lucide-react'
+import type React from "react"
+import { useState } from "react"
+import { DragDropContext, Droppable, Draggable, type DropResult } from "react-beautiful-dnd"
+import { Plus, Trash2, Clock, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import AddressAutocomplete from '@/components/AddressAutocomplete'
-import { ItineraryDay, ItineraryActivity } from '@/types/itinerary'
+import AddressAutocomplete from "@/components/AddressAutocomplete"
+import type { ItineraryDay, ItineraryActivity } from "@/types/itinerary"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
-import { DateRange } from "@/types/dateRange"
+import type { DateRange } from "@/types/dateRange"
 
 interface EditableItineraryProps {
   itinerary: ItineraryDay[]
@@ -21,77 +22,82 @@ interface EditableItineraryProps {
   onDateRangeChange: (dateRange: DateRange | undefined) => void
 }
 
-const EditableItinerary: React.FC<EditableItineraryProps> = ({ 
-  itinerary, 
-  setItinerary, 
-  selectedDay, 
+const EditableItinerary: React.FC<EditableItineraryProps> = ({
+  itinerary,
+  setItinerary,
+  selectedDay,
   setSelectedDay,
   startDate,
   endDate,
-  onDateRangeChange
+  onDateRangeChange,
 }) => {
   const [isAddActivityDialogOpen, setIsAddActivityDialogOpen] = useState(false)
   const [newActivity, setNewActivity] = useState<Partial<ItineraryActivity>>({})
 
   const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
+    if (!result.destination) return
 
-    const sourceDay = parseInt(result.source.droppableId);
-    const destinationDay = parseInt(result.destination.droppableId);
-    const sourceIndex = result.source.index;
-    const destinationIndex = result.destination.index;
+    const sourceDay = Number.parseInt(result.source.droppableId)
+    const destinationDay = Number.parseInt(result.destination.droppableId)
+    const sourceIndex = result.source.index
+    const destinationIndex = result.destination.index
 
-    setItinerary(prevItinerary => {
-      const newItinerary = [...prevItinerary];
-      const [removed] = newItinerary[sourceDay - 1].sections[0].activities.splice(sourceIndex, 1);
-      newItinerary[destinationDay - 1].sections[0].activities.splice(destinationIndex, 0, removed);
-      return newItinerary;
-    });
-  };
+    setItinerary((prevItinerary) => {
+      const newItinerary = [...prevItinerary]
+      const [removed] = newItinerary[sourceDay - 1].sections[0].activities.splice(sourceIndex, 1)
+      newItinerary[destinationDay - 1].sections[0].activities.splice(destinationIndex, 0, removed)
+      return newItinerary
+    })
+  }
 
   const addActivity = (dayNumber: number) => {
-    setSelectedDay(dayNumber);
-    setNewActivity({});
-    setIsAddActivityDialogOpen(true);
-  };
+    setSelectedDay(dayNumber)
+    setNewActivity({})
+    setIsAddActivityDialogOpen(true)
+  }
 
   const handleAddActivity = () => {
     if (selectedDay && newActivity.name) {
-      setItinerary(prevItinerary => {
-        const newItinerary = [...prevItinerary];
-        const day = newItinerary[selectedDay - 1];
+      setItinerary((prevItinerary) => {
+        const newItinerary = [...prevItinerary]
+        const day = newItinerary[selectedDay - 1]
         day.sections[0].activities.push({
           ...newActivity,
-          time: newActivity.time || '',
+          time: newActivity.time || "",
           duration: newActivity.duration || 0,
-        } as ItineraryActivity);
-        return newItinerary;
-      });
-      setIsAddActivityDialogOpen(false);
-      setNewActivity({});
+        } as ItineraryActivity)
+        return newItinerary
+      })
+      setIsAddActivityDialogOpen(false)
+      setNewActivity({})
     }
-  };
+  }
 
   const removeActivity = (dayNumber: number, activityIndex: number) => {
-    setItinerary(prevItinerary => {
-      const newItinerary = [...prevItinerary];
-      newItinerary[dayNumber - 1].sections[0].activities.splice(activityIndex, 1);
-      return newItinerary;
-    });
-  };
+    setItinerary((prevItinerary) => {
+      const newItinerary = [...prevItinerary]
+      newItinerary[dayNumber - 1].sections[0].activities.splice(activityIndex, 1)
+      return newItinerary
+    })
+  }
 
-  const updateActivity = (dayNumber: number, activityIndex: number, field: keyof ItineraryActivity, value: string | number) => {
-    setItinerary(prevItinerary => {
-      const newItinerary = [...prevItinerary];
-      const activity = newItinerary[dayNumber - 1].sections[0].activities[activityIndex];
-      if (field === 'duration') {
-        activity[field] = typeof value === 'string' ? parseInt(value, 10) : value;
+  const updateActivity = (
+    dayNumber: number,
+    activityIndex: number,
+    field: keyof ItineraryActivity,
+    value: string | number,
+  ) => {
+    setItinerary((prevItinerary) => {
+      const newItinerary = [...prevItinerary]
+      const activity = newItinerary[dayNumber - 1].sections[0].activities[activityIndex]
+      if (field === "duration") {
+        activity[field] = typeof value === "string" ? Number.parseInt(value, 10) : value
       } else {
-        activity[field] = value as never;
+        activity[field] = value as never
       }
-      return newItinerary;
-    });
-  };
+      return newItinerary
+    })
+  }
 
   return (
     <div>
@@ -125,11 +131,20 @@ const EditableItinerary: React.FC<EditableItineraryProps> = ({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Droppable droppableId={day.dayNumber.toString()}>
+              <Droppable
+                droppableId={day.dayNumber.toString()}
+                isDropDisabled={false}
+                isCombineEnabled={false}
+                ignoreContainerClipping={false}
+              >
                 {(provided) => (
                   <ul {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
                     {day.sections[0].activities.map((activity, index) => (
-                      <Draggable key={`${day.dayNumber}-${index}`} draggableId={`${day.dayNumber}-${index}`} index={index}>
+                      <Draggable
+                        key={`${day.dayNumber}-${index}`}
+                        draggableId={`${day.dayNumber}-${index}`}
+                        index={index}
+                      >
                         {(provided) => (
                           <li
                             ref={provided.innerRef}
@@ -140,27 +155,30 @@ const EditableItinerary: React.FC<EditableItineraryProps> = ({
                             <div className="flex justify-between items-center mb-2">
                               <Input
                                 value={activity.name}
-                                onChange={(e) => updateActivity(day.dayNumber, index, 'name', e.target.value)}
+                                onChange={(e) => updateActivity(day.dayNumber, index, "name", e.target.value)}
                                 className="font-medium"
                               />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeActivity(day.dayNumber, index)}
-                              >
+                              <Button variant="ghost" size="sm" onClick={() => removeActivity(day.dayNumber, index)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                             <div className="flex items-center space-x-2 mb-2">
                               <Input
                                 value={activity.time}
-                                onChange={(e) => updateActivity(day.dayNumber, index, 'time', e.target.value)}
+                                onChange={(e) => updateActivity(day.dayNumber, index, "time", e.target.value)}
                                 placeholder="Time (e.g., 9:00 AM)"
                                 className="w-32"
                               />
                               <Input
-                                value={activity.duration?.toString() || ''}
-                                onChange={(e) => updateActivity(day.dayNumber, index, 'duration', parseInt(e.target.value, 10) || 0)}
+                                value={activity.duration?.toString() || ""}
+                                onChange={(e) =>
+                                  updateActivity(
+                                    day.dayNumber,
+                                    index,
+                                    "duration",
+                                    Number.parseInt(e.target.value, 10) || 0,
+                                  )
+                                }
                                 placeholder="Duration (min)"
                                 type="number"
                                 className="w-32"
@@ -168,18 +186,18 @@ const EditableItinerary: React.FC<EditableItineraryProps> = ({
                             </div>
                             <Input
                               value={activity.description}
-                              onChange={(e) => updateActivity(day.dayNumber, index, 'description', e.target.value)}
+                              onChange={(e) => updateActivity(day.dayNumber, index, "description", e.target.value)}
                               placeholder="Description"
                               className="mb-2"
                             />
                             <AddressAutocomplete
-                              value={activity.address || ''}
-                              onChange={(value) => updateActivity(day.dayNumber, index, 'address', value)}
-                              onSelect={(address) => updateActivity(day.dayNumber, index, 'address', address)}
+                              value={activity.address || ""}
+                              onChange={(value) => updateActivity(day.dayNumber, index, "address", value)}
+                              onSelect={(address) => updateActivity(day.dayNumber, index, "address", address)}
                             />
                             <Input
                               value={activity.transportation}
-                              onChange={(e) => updateActivity(day.dayNumber, index, 'transportation', e.target.value)}
+                              onChange={(e) => updateActivity(day.dayNumber, index, "transportation", e.target.value)}
                               placeholder="Transportation"
                               className="mt-2"
                             />
@@ -203,33 +221,33 @@ const EditableItinerary: React.FC<EditableItineraryProps> = ({
           <div className="grid gap-4 py-4">
             <Input
               placeholder="Activity Name"
-              value={newActivity.name || ''}
+              value={newActivity.name || ""}
               onChange={(e) => setNewActivity({ ...newActivity, name: e.target.value })}
             />
             <Input
               placeholder="Time (e.g., 9:00 AM)"
-              value={newActivity.time || ''}
+              value={newActivity.time || ""}
               onChange={(e) => setNewActivity({ ...newActivity, time: e.target.value })}
             />
             <Input
               placeholder="Duration (minutes)"
               type="number"
-              value={newActivity.duration || ''}
-              onChange={(e) => setNewActivity({ ...newActivity, duration: parseInt(e.target.value) })}
+              value={newActivity.duration || ""}
+              onChange={(e) => setNewActivity({ ...newActivity, duration: Number.parseInt(e.target.value) })}
             />
             <Input
               placeholder="Description"
-              value={newActivity.description || ''}
+              value={newActivity.description || ""}
               onChange={(e) => setNewActivity({ ...newActivity, description: e.target.value })}
             />
             <AddressAutocomplete
-              value={newActivity.address || ''}
+              value={newActivity.address || ""}
               onChange={(value) => setNewActivity({ ...newActivity, address: value })}
               onSelect={(address) => setNewActivity({ ...newActivity, address: address })}
             />
             <Input
               placeholder="Transportation"
-              value={newActivity.transportation || ''}
+              value={newActivity.transportation || ""}
               onChange={(e) => setNewActivity({ ...newActivity, transportation: e.target.value })}
             />
           </div>
@@ -239,16 +257,8 @@ const EditableItinerary: React.FC<EditableItineraryProps> = ({
         </DialogContent>
       </Dialog>
     </div>
-  );
-};
+  )
+}
 
-export default EditableItinerary;
-
-
-
-
-
-
-
-
+export default EditableItinerary
 
