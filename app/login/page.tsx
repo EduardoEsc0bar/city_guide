@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { signIn } from "next-auth/react"
 import Image from "next/image"
 import Link from "next/link"
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { useSearchParams } from 'next/navigation'
 import { AlertCircle } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginPageContent() {
   const [isLoading, setIsLoading] = useState(false)
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
@@ -88,6 +88,13 @@ export default function LoginPage() {
   )
 }
 
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
+  )
+}
 
 
 
