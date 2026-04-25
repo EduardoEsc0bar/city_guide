@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server"
+import { authOptions } from "@/lib/auth"
 import { supabase } from "@/lib/supabase"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "../../auth/[...nextauth]/route"
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
   const session = await getServerSession(authOptions)
   
   if (!session?.user?.id) {
@@ -14,7 +18,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const { data: itinerary, error } = await supabase
       .from('itineraries')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.id)
       .single()
 
@@ -49,7 +53,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
   const session = await getServerSession(authOptions)
   
   if (!session?.user?.id) {
@@ -60,7 +68,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     const { error } = await supabase
       .from('itineraries')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.id)
 
     if (error) throw error

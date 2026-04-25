@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
+import { authOptions } from "@/lib/auth"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "../../../auth/[...nextauth]/route"
 import { supabase } from "@/lib/supabase"
 import { google } from 'googleapis'
 
@@ -10,7 +10,11 @@ const oauth2Client = new google.auth.OAuth2(
   `${process.env.NEXTAUTH_URL}/api/auth/google-calendar/callback`
 )
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
   const session = await getServerSession(authOptions)
   
   if (!session?.user?.id) {
@@ -40,7 +44,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const { data: itinerary, error: fetchError } = await supabase
       .from('itineraries')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.id)
       .single()
 
@@ -89,4 +93,3 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Failed to save itinerary to Google Calendar" }, { status: 500 })
   }
 }
-

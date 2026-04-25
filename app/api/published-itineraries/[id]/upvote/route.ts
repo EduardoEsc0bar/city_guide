@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server"
+import { authOptions } from "@/lib/auth"
 import { supabase } from "@/lib/supabase"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "../../../auth/[...nextauth]/route"
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
   const session = await getServerSession(authOptions)
   
   if (!session?.user?.id) {
@@ -12,7 +16,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   try {
     const { data, error } = await supabase.rpc('upvote_itinerary', {
-      itinerary_id: params.id,
+      itinerary_id: id,
       user_id: session.user.id
     })
 
@@ -24,4 +28,3 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Failed to upvote itinerary" }, { status: 500 })
   }
 }
-
